@@ -55,7 +55,7 @@ COPY . .
 # Expose port
 EXPOSE 8080
 
-# Use gunicorn on port 8080
+# Use gunicorn on port 8080 with 1 worker (models are too large for multiple workers)
 # Railway will automatically route traffic to this port
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "--timeout", "120", "wsgi:app"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "300", "--worker-class", "sync", "wsgi:app"]
 
