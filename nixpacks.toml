@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python311", "gcc", "gfortran", "openblas", "pkg-config"]
+nixPkgs = ["python311", "gfortran", "openblas", "pkg-config"]
 
 [phases.install]
 cmds = [
