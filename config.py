@@ -8,9 +8,9 @@ import torch
 
 # Base directory
 BASE_DIR = Path(__file__).parent
-PROJECT_ROOT = BASE_DIR.parent / "model training"
+PROJECT_ROOT = BASE_DIR  # Changed: now using local directory instead of "model training"
 
-# Load environment variables from model training directory (where .env is located)
+# Load environment variables from local directory (where .env is located)
 env_path = PROJECT_ROOT / ".env"
 load_dotenv(env_path)
 
@@ -28,7 +28,7 @@ class Config:
     FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
     FMP_API_KEY = os.getenv('FMP_API_KEY')
     
-    # Model Paths (relative to model training/)
+    # Model Paths (relative to web app directory)
     MODEL_PATH = PROJECT_ROOT / "models" / "sentiment_production"
     QLORA_MODEL_PATH = PROJECT_ROOT / "models" / "qlora_5fold" / "fold_0_final"
     TFT_MODEL_PATH = PROJECT_ROOT / "models" / "tft_checkpoints" / "tft-epoch=37-val_loss=0.0237.ckpt"

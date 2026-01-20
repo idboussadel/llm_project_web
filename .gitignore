@@ -125,15 +125,28 @@ dmypy.json
 
 # PyTorch / PyTorch Lightning
 lightning_logs/
-*.pth
-*.pt
-*.ckpt
-*.pkl
+# Training artifacts (ignore these)
 *.h5
 *.hdf5
-checkpoints/
-models/
 *.model
+
+# IMPORTANT: Production models are NOT ignored - they will be tracked in Git
+# If models are too large, consider using Git LFS or external storage
+# Production model directories that WILL be tracked:
+# - models/qlora_5fold/ (QLora Llama-2 model)
+# - models/tft_checkpoints/ (TFT model checkpoints)
+# - models/sentiment_production/ (sentiment models)
+# - data/tft/ (TFT config files)
+
+# Ignore only training artifacts (not production models)
+models/ablation_studies/
+models/baselines/
+models/lstm_baseline/
+models/sentiment/
+models/sentiment_llm/
+models/test_qlora/
+models/tft/
+models/tft_logs/
 
 # Logs
 *.log
@@ -217,7 +230,8 @@ secrets/
 # data/
 # datasets/
 
-# Model files (uncomment if models are too large)
+# Model files - PRODUCTION MODELS ARE TRACKED
+# Uncomment below only if you want to ignore ALL model files (not recommended)
 # *.pth
 # *.pt
 # *.ckpt

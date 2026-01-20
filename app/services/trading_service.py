@@ -21,8 +21,8 @@ from pytorch_forecasting.data.encoders import GroupNormalizer
 import pickle
 HAS_PYTORCH_LIGHTNING = True
 
-# Add src to path for imports
-project_root = Path(__file__).parent.parent.parent.parent / "model training"
+# Add src to path for imports (now using local src directory)
+project_root = Path(__file__).parent.parent.parent  # web app directory
 sys.path.insert(0, str(project_root))
 
 from src.data.collectors import NewsAPICollector, FinancialDataCollector
