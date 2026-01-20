@@ -52,9 +52,10 @@ WORKDIR /app
 # Copy application code
 COPY . .
 
-# Expose port (default to 8080 if PORT not set)
+# Expose port
 EXPOSE 8080
 
-# Use gunicorn with shell form to expand PORT variable
-CMD ["sh", "-c", "gunicorn -w 2 -b 0.0.0.0:${PORT:-8080} --timeout 120 wsgi:app"]
+# Use gunicorn on port 8080
+# Railway will automatically route traffic to this port
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "--timeout", "120", "wsgi:app"]
 
