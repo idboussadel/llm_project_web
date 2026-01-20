@@ -52,9 +52,9 @@ WORKDIR /app
 # Copy application code
 COPY . .
 
-# Expose port
-EXPOSE $PORT
+# Expose port (default to 8080 if PORT not set)
+EXPOSE 8080
 
-# Use gunicorn
-CMD gunicorn -w 2 -b 0.0.0.0:$PORT --timeout 120 --workers 2 wsgi:app
+# Use gunicorn with shell form to expand PORT variable
+CMD ["sh", "-c", "gunicorn -w 2 -b 0.0.0.0:${PORT:-8080} --timeout 120 wsgi:app"]
 
