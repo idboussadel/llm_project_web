@@ -1,0 +1,287 @@
+# # ============================================================================
+# # SentiTrade-HMA - Data Configuration
+# # Multi-Source Hierarchical Sentiment Aggregation for Algorithmic Trading
+# # ============================================================================
+
+# project:
+#   name: "SentiTrade-HMA"
+#   version: "2.0"
+#   description: "Hierarchical Multi-Source Aggregation of LLM-Derived Financial Sentiments"
+
+# # Directories
+# directories:
+#   raw_data: "data/raw"
+#   processed: "data/processed"
+#   features: "data/features"
+#   models: "models"
+#   results: "results"
+#   logs: "logs"
+
+# data_sources:
+#   financial:
+#     provider: "yfinance"
+#     start_date: "2020-01-01"
+#     end_date: "2025-12-31"
+  
+#   news:
+#     provider: "newsapi"
+#     api_key: "${NEWS_API_KEY}"
+#     max_articles: 100
+  
+#   # NOUVEAU : Finnhub et FMP
+#   finnhub:
+#     provider: "finnhub"
+#     api_key: "${FINNHUB_API_KEY}"
+    
+#   fmp:
+#     provider: "fmp"
+#     api_key: "${FMP_API_KEY}"
+#     base_url: "https://financialmodelingprep.com/api"
+
+
+# # Tickers à analyser
+# tickers:
+#   main:
+#     - "AAPL"
+#     - "MSFT"
+#     - "GOOGL"
+#     - "AMZN"
+#     - "TSLA"
+#     - "META"
+#     - "NVDA"
+#     - "JPM"
+#     - "V"
+#     - "JNJ"
+  
+#   test:  # Pour tests rapides
+#     - "AAPL"
+#     - "MSFT"
+
+# # Financial Data
+# financial:
+#   provider: "yfinance"
+#   interval: "1d"  # Daily
+#   features:
+#     - "Open"
+#     - "High"
+#     - "Low"
+#     - "Close"
+#     - "Volume"
+#     - "Adj Close"
+
+# # Date Ranges
+# dates:
+#   start_date: "2020-01-01"
+#   end_date: "2025-12-31"
+#   validation_split: 0.15
+#   test_split: 0.15
+
+# # Technical Indicators
+# technical_indicators:
+#   trend:
+#     - name: "SMA"
+#       windows: [20, 50, 200]
+#     - name: "EMA"
+#       windows: [12, 26]
+#     - name: "MACD"
+#       params: {fast: 12, slow: 26, signal: 9}
+  
+#   momentum:
+#     - name: "RSI"
+#       period: 14
+#     - name: "Stochastic"
+#       params: {k: 14, d: 3}
+  
+#   volatility:
+#     - name: "BollingerBands"
+#       period: 20
+#       std: 2
+#     - name: "ATR"
+#       period: 14
+  
+#   volume:
+#     - name: "OBV"
+#     - name: "VWAP"
+
+# # Data Preprocessing
+# preprocessing:
+#   missing_values:
+#     method: "forward_fill"
+#     max_gap: 5  # days
+  
+#   outliers:
+#     method: "iqr"
+#     threshold: 3.0
+  
+#   normalization:
+#     method: "robust_scaler"  # Robust to outliers
+#     feature_range: [-1, 1]
+
+# # Data Quality
+# quality:
+#   min_data_points: 252  # 1 trading year
+#   max_missing_pct: 0.05
+#   check_duplicates: true
+#   check_forward_leak: true
+
+# ============================================================================
+# SentiTrade-HMA - Data Configuration CORRIGÉ
+# ============================================================================
+
+project:
+  name: "SentiTrade-HMA"
+  version: "2.0"
+  description: "Hierarchical Multi-Source Aggregation of LLM-Derived Financial Sentiments"
+
+# Directories
+directories:
+  raw_data: "data/raw"
+  processed: "data/processed"
+  features: "data/features"
+  models: "models"
+  results: "results"
+  logs: "logs"
+
+# ============================================================================
+# DATA SOURCES - PÉRIODE CORRIGÉE: 2018-2024 (6 ans incluant COVID)
+# ============================================================================
+data_sources:
+  financial:
+    provider: "yfinance"
+    start_date: "2018-01-02"  # ✅ CORRIGÉ: Début 2018
+    end_date: "2024-12-31"    # ✅ CORRIGÉ: Fin 2024
+    interval: "1d"
+    features:
+      - "Open"
+      - "High"
+      - "Low"
+      - "Close"
+      - "Volume"
+      - "Adj Close"
+  
+  news:
+    provider: "newsapi"
+    api_key: "${NEWS_API_KEY}"
+    max_articles: 100
+    start_date: "2018-01-02"  # ✅ Aligné avec financial
+    end_date: "2024-12-31"
+  
+  # NOUVEAU : Sources supplémentaires
+  finnhub:
+    provider: "finnhub"
+    api_key: "${FINNHUB_API_KEY}"
+  
+  fmp:
+    provider: "fmp"
+    api_key: "${FMP_API_KEY}"
+    base_url: "https://financialmodelingprep.com/api"
+
+# ============================================================================
+# TICKERS - ÉLARGI À 20 TICKERS DIVERSIFIÉS (cible: 100)
+# ============================================================================
+tickers:
+  # Production: Top 20 S&P 500 diversifiés par secteur
+  main:
+    # Technology (5)
+    - "AAPL"   # Apple
+    - "MSFT"   # Microsoft
+    - "GOOGL"  # Alphabet
+    - "NVDA"   # Nvidia
+    - "META"   # Meta
+    
+    # Consumer (3)
+    - "AMZN"   # Amazon
+    - "TSLA"   # Tesla
+    - "WMT"    # Walmart
+    
+    # Finance (3)
+    - "JPM"    # JP Morgan
+    - "BAC"    # Bank of America
+    - "V"      # Visa
+    
+    # Healthcare (3)
+    - "JNJ"    # Johnson & Johnson
+    - "UNH"    # UnitedHealth
+    - "PFE"    # Pfizer
+    
+    # Energy (2)
+    - "XOM"    # Exxon Mobil
+    - "CVX"    # Chevron
+    
+    # Industrial (2)
+    - "BA"     # Boeing
+    - "CAT"    # Caterpillar
+    
+    # Telecom (2)
+    - "VZ"     # Verizon
+    - "T"      # AT&T
+  
+  # Test rapide (2 tickers)
+  test:
+    - "AAPL"
+    - "MSFT"
+  
+  # TODO: Étendre à 100 tickers pour version finale
+  # full_sp500_top100: [...]
+
+# ============================================================================
+# TECHNICAL INDICATORS - AJOUT DE HMA
+# ============================================================================
+preprocessing:
+  technical_indicators:
+    # ✅ HMA AJOUTÉ (Hull Moving Average - dans le titre du projet!)
+    - name: "HMA"
+      period: 20
+    
+    # RSI
+    - name: "RSI"
+      period: 14
+    
+    # MACD
+    - name: "MACD"
+      fast: 12
+      slow: 26
+      signal: 9
+    
+    # Bollinger Bands
+    - name: "BB"
+      period: 20
+      std: 2
+    
+    # Volume
+    - name: "OBV"
+    - name: "VWAP"
+  
+  missing_values:
+    method: "forward_fill"
+    max_gap: 5  # days
+  
+  outliers:
+    method: "iqr"
+    threshold: 3.0
+  
+  normalization:
+    method: "robust_scaler"
+    feature_range: [-1, 1]
+
+# ============================================================================
+# DATA QUALITY
+# ============================================================================
+quality:
+  min_data_points: 1512  # 6 years × 252 trading days
+  max_missing_pct: 0.05
+  check_duplicates: true
+  check_forward_leak: true
+
+# ============================================================================
+# DATE RANGES
+# ============================================================================
+dates:
+  # ✅ CORRIGÉ: Aligné avec data_sources
+  start_date: "2018-01-02"
+  end_date: "2024-12-31"
+  
+  # Split ratios (pour simple split, pas walk-forward)
+  validation_split: 0.15
+  test_split: 0.15
+

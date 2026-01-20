@@ -1,0 +1,94 @@
+{% extends "dashboard_base.html" %} {% block title %}SentiTrade Dashboard{% endblock %} {% block content %}
+<!-- Page Title -->
+<div class="mb-6 lg:mb-8">
+  <h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
+    SentiTrade
+  </h1>
+  <p class="text-sm text-muted-foreground mt-1.5">
+    Hierarchical Multi-Source Sentiment Analysis
+  </p>
+</div>
+
+<!-- Hero Section -->
+<div class="bg-card border border-border rounded-lg shadow-sm p-8 lg:p-12 mb-6 lg:mb-8">
+  <div class="text-center max-w-3xl mx-auto">
+    <p class="text-base lg:text-lg text-muted-foreground leading-relaxed">
+      Advanced financial sentiment analysis combining news, social media, and
+      earnings data to generate actionable trading signals using
+      state-of-the-art NLP models.
+    </p>
+    <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+      <a
+        href="{{ url_for('views.analyze') }}"
+        class="inline-flex items-center justify-center h-10 px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        Try Demo
+        <i data-lucide="arrow-right" class="ml-2 h-4 w-4"></i>
+      </a>
+      <a
+        href="{{ url_for('views.signals') }}"
+        class="inline-flex items-center justify-center h-10 px-6 py-2 border border-input bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        Generate Signals
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Features Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+  <!-- Feature 1 -->
+  <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+        <i data-lucide="search" class="h-5 w-5 text-primary"></i>
+      </div>
+      <h3 class="text-base font-semibold text-foreground">Sentiment Analysis</h3>
+    </div>
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      Analyze financial text using our domain-specialized sentiment model
+      trained on financial data.
+    </p>
+  </div>
+
+  <!-- Feature 2 -->
+  <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+        <i data-lucide="activity" class="h-5 w-5 text-primary"></i>
+      </div>
+      <h3 class="text-base font-semibold text-foreground">Trading Signals</h3>
+    </div>
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      Generate actionable trading signals from multi-source sentiment analysis
+      combined with TFT price predictions.
+    </p>
+  </div>
+
+  <!-- Feature 3 -->
+  <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+        <i data-lucide="bar-chart-3" class="h-5 w-5 text-primary"></i>
+      </div>
+      <h3 class="text-base font-semibold text-foreground">Multi-Source</h3>
+    </div>
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      Combine sentiment from news articles, social media, and earnings
+      transcripts for comprehensive analysis.
+    </p>
+  </div>
+</div>
+
+<!-- Abstract Section -->
+<div class="mt-6 lg:mt-8 bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+  <h2 class="text-lg font-semibold text-foreground mb-4">About</h2>
+  <div class="prose prose-sm max-w-none">
+    <p class="text-sm text-muted-foreground leading-relaxed">
+      SentiTrade is a comprehensive financial sentiment analysis platform that
+      leverages hierarchical multi-source data aggregation and state-of-the-art
+      machine learning models to provide actionable trading insights.
+    </p>
+  </div>
+</div>
+{% endblock %}

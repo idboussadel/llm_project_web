@@ -1,0 +1,242 @@
+{% extends "dashboard_base.html" %} {% block title %}Sentiment Analysis - SentiTrade Dashboard{% endblock %} {% block content %}
+<!-- Page Title -->
+<div class="mb-6 lg:mb-8">
+  <h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
+    Sentiment Analysis
+  </h1>
+  <p class="text-sm text-muted-foreground mt-1.5">
+    Analyze financial text using our domain-specialized sentiment model
+  </p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start">
+  <!-- Input Section -->
+  <div class="h-full">
+    <div
+      class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6 h-full flex flex-col"
+    >
+      <h2 class="text-base lg:text-lg font-semibold text-foreground mb-4">
+        Input Text
+      </h2>
+
+      <!-- Example Selector -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-muted-foreground mb-2">
+          Select Example
+        </label>
+        <select
+          id="exampleSelector"
+          class="w-full h-10 px-3 pr-10 py-2 text-sm border border-input bg-background rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M4%206L8%2010L12%206%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:16px_16px] bg-[right_0.75rem_center]"
+        >
+          <option value="">-- Choose a predefined example --</option>
+          {% for example in examples %}
+          <option
+            value="{{ example.id }}"
+            data-text="{{ example.text }}"
+            data-category="{{ example.category }}"
+            data-source="{{ example.source }}"
+          >
+            {{ example.category }}: {{ example.source }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Text Area -->
+      <div class="mb-4 flex-1 flex flex-col">
+        <label class="block text-sm font-medium text-muted-foreground mb-2">
+          Or Enter Custom Text
+        </label>
+        <textarea
+          id="textInput"
+          rows="8"
+          class="flex-1 w-full px-3 py-2 text-sm border border-input bg-background rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none placeholder:text-muted-foreground"
+          placeholder="Enter financial text (news headline, tweet, earnings statement...)"
+        ></textarea>
+        <div class="mt-2 text-xs text-muted-foreground">
+          <span id="charCount">0</span> characters
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 mt-auto">
+        <button
+          id="analyzeBtn"
+          class="flex-1 h-10 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Analyze Sentiment
+        </button>
+        <button
+          id="clearBtn"
+          class="h-10 px-4 py-2 border border-input bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Clear
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="hidden mt-4 text-center">
+        <div
+          class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"
+        ></div>
+        <p class="mt-2 text-xs text-muted-foreground">Analyzing...</p>
+      </div>
+
+      <!-- Error State -->
+      <div
+        id="errorState"
+        class="hidden mt-4 p-3 text-sm text-negative bg-negative/10 border border-negative/20 rounded-md"
+      >
+        <p id="errorMessage"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Section -->
+  <div class="h-full">
+    <div
+      id="resultsContainer"
+      class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6 h-full flex flex-col"
+    >
+      <h2 class="text-base lg:text-lg font-semibold text-foreground mb-4">
+        Results
+      </h2>
+
+      <!-- Empty State -->
+      <div
+        id="emptyState"
+        class="flex-1 flex flex-col items-center justify-center text-center py-12"
+      >
+        <div class="rounded-full bg-muted p-4 mb-4">
+          <i data-lucide="file-text" class="h-12 w-12 text-muted-foreground"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-foreground mb-1">
+          No analysis yet
+        </h3>
+        <p class="text-sm text-muted-foreground max-w-sm">
+          Select an example or enter text to analyze sentiment
+        </p>
+      </div>
+
+      <!-- Results Display (Hidden initially) -->
+      <div id="resultsDisplay" class="hidden flex-1 flex flex-col">
+        <!-- Overall Sentiment -->
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-muted-foreground mb-3">
+            Overall Sentiment
+          </h3>
+          <div class="flex items-center gap-4">
+            <div
+              id="sentimentBadge"
+              class="px-4 py-2 rounded-md font-semibold text-lg"
+            >
+              <!-- Dynamic content -->
+            </div>
+            <div class="flex-1">
+              <div class="text-2xl font-bold text-foreground" id="confidenceValue">
+                --
+              </div>
+              <div class="text-xs text-muted-foreground">Confidence</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Indicator -->
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-muted-foreground mb-3">Score</h3>
+          <div class="flex items-center gap-3">
+            <div class="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                id="scoreBar"
+                class="h-full transition-all duration-500"
+                style="width: 50%"
+              ></div>
+            </div>
+            <div
+              class="text-lg font-semibold w-12 text-right text-foreground"
+              id="scoreValue"
+            >
+              0
+            </div>
+          </div>
+          <div class="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>Bearish (-1)</span>
+            <span>Neutral (0)</span>
+            <span>Bullish (+1)</span>
+          </div>
+        </div>
+
+        <!-- Probability Distribution -->
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-muted-foreground mb-3">
+            Probability Distribution
+          </h3>
+
+          <!-- Positive -->
+          <div class="mb-3">
+            <div class="flex justify-between text-sm mb-1">
+              <span class="font-medium text-positive">Positive</span>
+              <span id="probPositive" class="font-semibold text-foreground"
+                >--%</span
+              >
+            </div>
+            <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                id="barPositive"
+                class="h-full bg-positive transition-all duration-500"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Neutral -->
+          <div class="mb-3">
+            <div class="flex justify-between text-sm mb-1">
+              <span class="font-medium text-neutral">Neutral</span>
+              <span id="probNeutral" class="font-semibold text-foreground"
+                >--%</span
+              >
+            </div>
+            <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                id="barNeutral"
+                class="h-full bg-neutral transition-all duration-500"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Negative -->
+          <div class="mb-3">
+            <div class="flex justify-between text-sm mb-1">
+              <span class="font-medium text-negative">Negative</span>
+              <span id="probNegative" class="font-semibold text-foreground"
+                >--%</span
+              >
+            </div>
+            <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                id="barNegative"
+                class="h-full bg-negative transition-all duration-500"
+                style="width: 0%"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interpretation -->
+        <div class="bg-muted/30 border border-border rounded-md p-4 mt-auto">
+          <h3 class="text-sm font-medium text-foreground mb-2">
+            Interpretation
+          </h3>
+          <p id="interpretationText" class="text-sm text-muted-foreground">
+            <!-- Dynamic content -->
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/analyze.js') }}"></script>
+{% endblock %}

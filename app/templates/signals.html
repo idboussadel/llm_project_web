@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trading Signals - SentiTrade Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              border: "hsl(214.3 31.8% 91.4%)",
+              input: "hsl(214.3 31.8% 91.4%)",
+              ring: "hsl(222.2 84% 4.9%)",
+              background: "hsl(0 0% 100%)",
+              foreground: "hsl(222.2 84% 4.9%)",
+              primary: {
+                DEFAULT: "hsl(222.2 47.4% 11.2%)",
+                foreground: "hsl(210 40% 98%)",
+              },
+              secondary: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(222.2 47.4% 11.2%)",
+              },
+              muted: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(215.4 16.3% 46.9%)",
+              },
+              accent: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(222.2 47.4% 11.2%)",
+              },
+              card: {
+                DEFAULT: "hsl(0 0% 100%)",
+                foreground: "hsl(222.2 84% 4.9%)",
+              },
+              positive: "hsl(142.1 76.2% 36.3%)",
+              negative: "hsl(0 84.2% 60.2%)",
+              neutral: "hsl(215.4 16.3% 46.9%)",
+            },
+            borderRadius: {
+              lg: "0.5rem",
+              md: "calc(0.5rem - 2px)",
+              sm: "calc(0.5rem - 4px)",
+            },
+          },
+        },
+      };
+    </script>
+
+    <!-- Custom Styles -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/custom.css') }}"
+    />
+  </head>
+  <body class="bg-background text-foreground antialiased min-h-screen">
+    <!-- Dashboard Container -->
+    <div class="flex min-h-screen bg-background">
+      <!-- Mobile Sidebar Overlay -->
+      <div
+        id="mobileSidebarOverlay"
+        class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden"
+        onclick="toggleMobileSidebar()"
+      ></div>
+
+      <!-- Sidebar -->
+      <aside
+        id="sidebar"
+        class="fixed lg:static inset-y-0 left-0 z-50 lg:z-auto flex flex-col w-80 border-r border-slate-700/50 bg-slate-900 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out"
+      >
+        <div class="flex flex-col h-full">
+          <!-- Logo/Brand -->
+          <div class="flex items-center justify-between gap-2 px-6 py-6 border-b border-slate-700/50">
+            <div class="flex items-center gap-2">
+              <div class="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
+                <i data-lucide="trending-up" class="h-5 w-5 text-primary-foreground"></i>
+              </div>
+              <span class="text-lg font-bold text-white">SentiTrade</span>
+            </div>
+            <!-- Mobile Close Button -->
+            <button
+              class="lg:hidden p-1 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              onclick="toggleMobileSidebar()"
+            >
+              <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+          </div>
+
+          <!-- Navigation -->
+          <nav class="flex-1 px-3 py-4 space-y-1">
+            <a
+              href="{{ url_for('views.index') }}"
+              class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md {% if request.endpoint == 'views.index' %}bg-slate-800 text-white{% else %}text-slate-300 hover:bg-slate-800/50 hover:text-white{% endif %} transition-colors"
+            >
+              <i data-lucide="home" class="h-4 w-4"></i>
+              <span>Home</span>
+            </a>
+            <a
+              href="{{ url_for('views.analyze') }}"
+              class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md {% if request.endpoint == 'views.analyze' %}bg-slate-800 text-white{% else %}text-slate-300 hover:bg-slate-800/50 hover:text-white{% endif %} transition-colors"
+            >
+              <i data-lucide="search" class="h-4 w-4"></i>
+              <span>Analyze</span>
+            </a>
+            <a
+              href="{{ url_for('views.signals') }}"
+              class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md {% if request.endpoint == 'views.signals' %}bg-slate-800 text-white{% else %}text-slate-300 hover:bg-slate-800/50 hover:text-white{% endif %} transition-colors"
+            >
+              <i data-lucide="activity" class="h-4 w-4"></i>
+              <span>Trading Signals</span>
+            </a>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <div class="flex-1 flex flex-col min-w-0">
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+          <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+            <!-- Mobile Menu Button -->
+            <div class="lg:hidden mb-4">
+              <button
+                id="mobileMenuButton"
+                class="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                onclick="toggleMobileSidebar()"
+              >
+                <i data-lucide="menu" class="h-5 w-5"></i>
+              </button>
+            </div>
+
+            <!-- Page Title -->
+            <div class="mb-6 lg:mb-8">
+              <h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
+                Trading Signals
+              </h1>
+              <p class="text-sm text-muted-foreground mt-1.5">
+                Multi-source sentiment analysis with TFT price prediction
+              </p>
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+              <!-- Left Column: Input & Controls -->
+              <div class="lg:col-span-2">
+            <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+              <div class="space-y-5">
+                <div>
+                  <h2 class="text-base lg:text-lg font-semibold text-foreground mb-1">
+                    Select Ticker
+                  </h2>
+                  <p class="text-xs text-muted-foreground">
+                    Choose a stock to analyze
+                  </p>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-2">
+                    Stock Ticker
+                  </label>
+                  <select
+                    id="tickerSelect"
+                    class="w-full h-10 px-3 pr-10 py-2 text-sm border border-input bg-background rounded-md ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M4%206L8%2010L12%206%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:16px_16px] bg-[right_0.75rem_center]"
+                  >
+                    <option value="">-- Choose a ticker --</option>
+                    <optgroup label="Technology">
+                      <option value="AAPL">AAPL - Apple Inc.</option>
+                      <option value="MSFT">MSFT - Microsoft Corporation</option>
+                      <option value="GOOGL">GOOGL - Alphabet Inc.</option>
+                      <option value="AMZN">AMZN - Amazon.com Inc.</option>
+                      <option value="META">META - Meta Platforms Inc.</option>
+                      <option value="NVDA">NVDA - NVIDIA Corporation</option>
+                      <option value="NFLX">NFLX - Netflix Inc.</option>
+                    </optgroup>
+                    <optgroup label="Automotive & Energy">
+                      <option value="TSLA">TSLA - Tesla Inc.</option>
+                      <option value="F">F - Ford Motor Company</option>
+                      <option value="GM">GM - General Motors Company</option>
+                    </optgroup>
+                    <optgroup label="Finance">
+                      <option value="JPM">JPM - JPMorgan Chase & Co.</option>
+                      <option value="BAC">BAC - Bank of America Corp.</option>
+                      <option value="GS">GS - Goldman Sachs Group Inc.</option>
+                    </optgroup>
+                    <optgroup label="Consumer & Retail">
+                      <option value="WMT">WMT - Walmart Inc.</option>
+                      <option value="HD">HD - The Home Depot Inc.</option>
+                      <option value="NKE">NKE - Nike Inc.</option>
+                    </optgroup>
+                    <optgroup label="Healthcare">
+                      <option value="JNJ">JNJ - Johnson & Johnson</option>
+                      <option value="PFE">PFE - Pfizer Inc.</option>
+                      <option value="UNH">UNH - UnitedHealth Group Inc.</option>
+                    </optgroup>
+                    <optgroup label="Crypto-Related Stocks">
+                      <option value="COIN">COIN - Coinbase Global Inc.</option>
+                      <option value="MSTR">MSTR - MicroStrategy Inc.</option>
+                      <option value="RIOT">RIOT - Riot Platforms Inc.</option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                <button
+                  id="generateBtn"
+                  class="w-full h-10 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Generate Trading Signal
+                </button>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden text-center py-4">
+                  <div
+                    class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"
+                  ></div>
+                  <p class="mt-2 text-xs text-muted-foreground">
+                    Analyzing multi-source data...
+                  </p>
+                </div>
+
+                <!-- Error State -->
+                <div
+                  id="errorState"
+                  class="hidden p-3 text-sm text-negative bg-negative/10 border border-negative/20 rounded-md"
+                >
+                  <p id="errorMessage"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Results -->
+          <div class="lg:col-span-3">
+            <div
+              id="resultsContainer"
+              class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6"
+            >
+              <!-- Empty State -->
+              <div
+                id="emptyState"
+                class="flex flex-col items-center justify-center text-center py-8"
+              >
+                <div class="rounded-full bg-muted p-4 mb-4">
+                  <i
+                    data-lucide="trending-up"
+                    class="h-12 w-12 text-muted-foreground"
+                  ></i>
+                </div>
+                <h3 class="text-base font-semibold text-foreground mb-2">
+                  No analysis yet
+                </h3>
+                <p class="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                  Select a ticker and generate a trading signal to see detailed analysis
+                </p>
+              </div>
+
+              <!-- Results Display -->
+              <div id="resultsDisplay" class="hidden space-y-4 lg:space-y-6">
+                <!-- Trading Signal Card -->
+                <div
+                  class="bg-card border border-border rounded-lg p-5 lg:p-6"
+                  id="signalCard"
+                >
+                  <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <h3 class="text-sm font-medium text-muted-foreground">
+                          Trading Signal
+                        </h3>
+                        <button 
+                          class="info-badge-btn p-1 rounded-full hover:bg-foreground/10 transition-colors"
+                          onclick="showTradingSignalInfo()"
+                        >
+                          <i data-lucide="info" class="w-3.5 h-3.5 text-muted-foreground"></i>
+                        </button>
+                      </div>
+                      <div class="flex items-center gap-3 mt-3">
+                        <div
+                          id="signalBadge"
+                          class="px-4 py-2 rounded-md font-semibold text-lg"
+                        >
+                          <!-- Dynamic -->
+                        </div>
+                        <div>
+                          <div
+                            class="text-2xl font-bold text-foreground"
+                            id="signalConfidence"
+                          >
+                            --
+                          </div>
+                          <div class="text-xs text-muted-foreground">
+                            Confidence
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p
+                    id="signalReasoning"
+                    class="text-sm text-muted-foreground leading-relaxed"
+                  >
+                    <!-- Dynamic -->
+                  </p>
+                </div>
+
+                <!-- Multi-Source Sentiment -->
+                <div class="bg-card border border-border rounded-lg p-5 lg:p-6">
+                  <h3 class="text-sm font-semibold text-foreground mb-4">
+                    Multi-Source Sentiment Analysis
+                  </h3>
+                  <div class="space-y-3" id="sourceSentiments">
+                    <!-- Dynamic source cards -->
+                  </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- Aggregated Sentiment Card -->
+                  <div class="bg-card border border-border rounded-lg p-4 lg:p-5">
+                    <h3 class="text-sm font-semibold text-foreground mb-3">
+                      Aggregated Sentiment
+                    </h3>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between">
+                        <span
+                          class="text-2xl font-bold text-foreground"
+                          id="aggSentiment"
+                          >--</span
+                        >
+                      </div>
+                      <div class="text-xs text-muted-foreground" id="aggScore">
+                        --
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- TFT Prediction Card -->
+                  <div class="bg-card border border-border rounded-lg p-4 lg:p-5">
+                    <h3 class="text-sm font-semibold text-foreground mb-3">
+                      TFT Price Prediction
+                    </h3>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between">
+                        <span
+                          class="text-2xl font-bold text-foreground"
+                          id="tftReturn"
+                          >--</span
+                        >
+                        <span class="text-xs text-muted-foreground"
+                          >5-day forecast</span
+                        >
+                      </div>
+                      <div
+                        class="text-xs text-muted-foreground"
+                        id="tftInterval"
+                      >
+                        <!-- Dynamic -->
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div
+      id="infoModal"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-card border border-border rounded-lg shadow-xl max-w-md w-full overflow-hidden flex flex-col"
+      >
+        <div
+          class="flex items-center justify-between p-6 border-b border-border"
+        >
+          <h3
+            id="infoModalTitle"
+            class="text-lg font-semibold text-foreground"
+          ></h3>
+          <button
+            onclick="closeInfoModal()"
+            class="text-muted-foreground hover:text-foreground transition-colors rounded-sm p-1 hover:bg-muted"
+          >
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+        <div
+          id="infoModalContent"
+          class="p-6 overflow-y-auto max-h-[60vh]"
+        >
+          <!-- Dynamic content -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Text Preview Modal -->
+    <div
+      id="textModal"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4"
+    >
+      <div
+        class="bg-card border border-border rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+      >
+        <div
+          class="flex items-center justify-between p-6 border-b border-border"
+        >
+          <h3
+            id="modalTitle"
+            class="text-lg font-semibold text-foreground"
+          ></h3>
+          <button
+            onclick="closeTextModal()"
+            class="text-muted-foreground hover:text-foreground transition-colors rounded-sm p-1 hover:bg-muted"
+          >
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+        <div
+          id="modalContent"
+          class="p-6 overflow-y-auto flex-1"
+        >
+          <!-- Content will be inserted here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/signals.js') }}"></script>
+
+    <!-- Initialize Lucide Icons -->
+    <script>
+      lucide.createIcons();
+
+      // Mobile sidebar toggle
+      function toggleMobileSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("mobileSidebarOverlay");
+        const isOpen = !sidebar.classList.contains("-translate-x-full");
+
+        if (isOpen) {
+          sidebar.classList.add("-translate-x-full");
+          overlay.classList.add("hidden");
+        } else {
+          sidebar.classList.remove("-translate-x-full");
+          overlay.classList.remove("hidden");
+        }
+      }
+
+      // Close sidebar on window resize to desktop
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 1024) {
+          const sidebar = document.getElementById("sidebar");
+          const overlay = document.getElementById("mobileSidebarOverlay");
+          sidebar.classList.remove("-translate-x-full");
+          overlay.classList.add("hidden");
+        }
+      });
+    </script>
+  </body>
+</html>

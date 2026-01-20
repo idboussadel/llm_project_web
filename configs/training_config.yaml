@@ -1,0 +1,360 @@
+# # ============================================================================
+# # SentiTrade-HMA - Training Configuration
+# # ============================================================================
+
+# # Environment
+# environment:
+#   seed: 42
+#   deterministic: true
+#   num_workers: 4
+#   pin_memory: true
+  
+#   # Hardware
+#   device: "cuda"  # or "cpu"
+#   mixed_precision: true
+#   compile: false  # PyTorch 2.0+
+
+# # ===========================
+# # Walk-Forward Validation
+# # ===========================
+# walk_forward:
+#   enabled: true
+  
+#   # Window Configuration
+#   initial_train_size: 756  # 3 years (252 * 3)
+#   validation_size: 63      # 3 months (~63 trading days)
+#   test_size: 63
+#   step_size: 21            # 1 month increments
+  
+#   # Expanding vs Rolling Window
+#   window_type: "expanding"  # or "rolling"
+  
+#   # Purging & Embargo (Avoid leakage)
+#   purge_length: 5  # days to purge
+#   embargo_length: 5  # days embargo
+  
+#   # Number of folds
+#   n_splits: 5
+
+# # Cross-Validation (Alternative)
+# cross_validation:
+#   enabled: false
+#   method: "time_series_split"
+#   n_splits: 5
+#   test_size: 0.2
+
+# # ===========================
+# # Backtesting
+# # ===========================
+# backtesting:
+#   # Transaction Costs (RÉALISME)
+#   costs:
+#     commission: 0.001  # 0.1% per trade
+#     slippage: 0.0005   # 0.05% slippage
+#     market_impact:
+#       enabled: true
+#       coefficient: 0.1  # Impact = coef * sqrt(trade_size/avg_volume)
+  
+#   # Trading Rules
+#   trading:
+#     min_position_size: 100  # USD
+#     max_position_size: 10000
+#     max_positions: 5
+    
+#     # Signal thresholds
+#     buy_threshold: 0.6   # Sentiment > 0.6
+#     sell_threshold: -0.6
+    
+#     # Risk Management
+#     stop_loss: 0.05      # 5% stop loss
+#     take_profit: 0.15    # 15% take profit
+#     max_drawdown: 0.20   # Max 20% drawdown
+  
+#   # Rebalancing
+#   rebalance:
+#     frequency: "daily"
+#     method: "equal_weight"  # or "risk_parity", "mean_variance"
+  
+#   # Initial Capital
+#   initial_capital: 100000  # $100k
+
+# # ===========================
+# # Performance Metrics
+# # ===========================
+# metrics:
+#   # Returns
+#   returns:
+#     - "total_return"
+#     - "annualized_return"
+#     - "cumulative_return"
+  
+#   # Risk-Adjusted
+#   risk_adjusted:
+#     - name: "sharpe_ratio"
+#       target: 1.2  # Beat 0.8 baseline (Fiche de projet)
+#       risk_free_rate: 0.02
+#     - "sortino_ratio"
+#     - "calmar_ratio"
+#     - "information_ratio"
+  
+#   # Risk
+#   risk:
+#     - "volatility"
+#     - "max_drawdown"
+#     - "value_at_risk"  # VaR 95%
+#     - "conditional_var"  # CVaR
+  
+#   # Trading
+#   trading:
+#     - "win_rate"
+#     - "profit_factor"
+#     - "avg_win_loss_ratio"
+#     - "total_trades"
+#     - "avg_holding_period"
+
+# # ===========================
+# # Logging & Monitoring
+# # ===========================
+# logging:
+#   level: "INFO"
+  
+#   # Weights & Biases
+#   wandb:
+#     enabled: false
+#     project: "senti-trade-hma"
+#     entity: null
+#     tags:
+#       - "llm"
+#       - "tft"
+#       - "multi-source"
+  
+#   # TensorBoard
+#   tensorboard:
+#     enabled: true
+#     log_dir: "logs/tensorboard"
+  
+#   # MLflow
+#   mlflow:
+#     enabled: false
+#     tracking_uri: "http://localhost:5000"
+#     experiment_name: "senti-trade-hma"
+
+# # Checkpointing
+# checkpointing:
+#   save_best: true
+#   save_last: true
+#   monitor: "val_sharpe_ratio"
+#   mode: "max"
+#   save_top_k: 3
+#   every_n_epochs: 1
+
+# # ===========================
+# # Ablation Studies
+# # ===========================
+# ablation:
+#   enabled: true
+#   experiments:
+#     - name: "single_source_news"
+#       sources: ["news"]
+    
+#     - name: "single_source_social"
+#       sources: ["social"]
+    
+#     - name: "two_source_news_social"
+#       sources: ["news", "social"]
+    
+#     - name: "full_multi_source"
+#       sources: ["news", "social", "transcripts"]
+    
+#     - name: "no_sentiment"
+#       sources: []
+#       use_technical_only: true
+
+# # ===========================
+# # Hyperparameter Tuning
+# # ===========================
+# hyperparameter_tuning:
+#   enabled: false
+#   method: "optuna"
+  
+#   n_trials: 50
+#   timeout: 3600  # 1 hour
+  
+#   search_space:
+#     tft_hidden_size: [64, 128, 160, 256]
+#     tft_lstm_layers: [1, 2, 3]
+#     tft_attention_heads: [1, 4, 8]
+#     tft_dropout: [0.0, 0.3]
+#     tft_learning_rate: [1e-4, 1e-2, "log"]
+    
+#     aggregation_num_heads: [1, 4, 8]
+#     aggregation_hidden_dim: [32, 64, 128]
+
+
+# ============================================================================
+# SentiTrade-HMA - Training Configuration CORRIGÉ
+# ============================================================================
+
+environment:
+  seed: 42
+  deterministic: true
+  num_workers: 4
+  pin_memory: true
+
+device: "cuda"
+mixed_precision: true
+
+# ============================================================================
+# WALK-FORWARD VALIDATION - CORRIGÉ SELON FICHE DE PROJET
+# ============================================================================
+walk_forward:
+  enabled: true
+  
+  # ✅ CONFIGURATION CONFORME À LA FICHE DE PROJET
+  # Fiche: "18-month training window, 6-month validation, 3-month testing"
+  
+  # Training window: 18 mois
+  train_window_months: 18
+  train_window_days: 378  # 18 × 21 jours ouvrés
+  
+  # Validation window: 6 mois
+  validation_window_months: 6
+  validation_window_days: 126  # 6 × 21 jours ouvrés
+  
+  # Test window: 3 mois
+  test_window_months: 3
+  test_window_days: 63  # 3 × 21 jours ouvrés
+  
+  # ✅ RETRAINING FREQUENCY: TRIMESTRIEL (fiche de projet)
+  # "quarterly retraining"
+  retraining_frequency: "quarterly"
+  step_size_months: 3
+  step_size_days: 63  # 3 mois = 63 jours ouvrés
+  
+  # Window type
+  window_type: "expanding"  # ou "rolling"
+  
+  # Purging & Embargo (éviter le look-ahead bias)
+  purge_length: 5   # days
+  embargo_length: 5  # days
+  
+  # Nombre de folds pour walk-forward
+  n_splits: 5
+
+# ============================================================================
+# BACKTESTING - RÉALISME AVEC COÛTS
+# ============================================================================
+backtesting:
+  # ✅ Transaction Costs: 10 bps (fiche de projet)
+  costs:
+    commission: 0.001      # ✅ 10 basis points (0.1%)
+    slippage: 0.0005       # 5 bps slippage
+    market_impact:
+      enabled: true
+      coefficient: 0.1
+  
+  # Trading rules
+  trading:
+    min_position_size: 100   # USD
+    max_position_size: 10000
+    max_positions: 10        # ✅ Élargi pour 20+ tickers
+    
+    buy_threshold: 0.6
+    sell_threshold: -0.6
+  
+  # Risk management
+  risk:
+    stop_loss: 0.05         # 5%
+    take_profit: 0.15       # 15%
+    max_drawdown: 0.20      # 20%
+  
+  # Rebalancing
+  rebalance:
+    frequency: "daily"
+    method: "equal_weight"
+  
+  # Initial capital
+  initial_capital: 100000  # $100k
+
+# ============================================================================
+# PERFORMANCE METRICS - SELON FICHE DE PROJET
+# ============================================================================
+metrics:
+  # Returns
+  returns:
+    - "total_return"
+    - "annualized_return"
+    - "cumulative_return"
+  
+  # ✅ Risk-Adjusted (fiche de projet)
+  risk_adjusted:
+    - name: "sharpe_ratio"
+      target: 1.2           # ✅ Fiche: Beat 0.8 baseline, target 1.2
+      risk_free_rate: 0.02
+    - "sortino_ratio"
+    - "calmar_ratio"
+    - "information_ratio"
+  
+  # ✅ Risk metrics (fiche de projet)
+  risk:
+    - "volatility"
+    - "max_drawdown"       # ✅ Maximum Drawdown requis
+    - "value_at_risk"
+    - "conditional_var"
+  
+  # ✅ Trading metrics (fiche de projet)
+  trading:
+    - "win_rate"           # ✅ Win Rate requis
+    - "profit_factor"
+    - "avg_win_loss_ratio"
+    - "total_trades"
+
+# ============================================================================
+# ABLATION STUDIES - FICHE DE PROJET
+# ============================================================================
+ablation:
+  enabled: true
+  experiments:
+    # Single source
+    - name: "single_source_news"
+      sources: ["news"]
+    
+    - name: "single_source_social"
+      sources: ["social"]
+    
+    - name: "single_source_transcripts"
+      sources: ["transcripts"]
+    
+    # Multi-source combinations
+    - name: "two_source_news_social"
+      sources: ["news", "social"]
+    
+    - name: "full_multi_source"
+      sources: ["news", "social", "transcripts"]
+    
+    # No sentiment baseline
+    - name: "no_sentiment"
+      sources: []
+      use_technical_only: true
+
+# ============================================================================
+# LOGGING & MONITORING
+# ============================================================================
+logging:
+  level: "INFO"
+  
+  tensorboard:
+    enabled: true
+    log_dir: "logs/tensorboard"
+  
+  wandb:
+    enabled: false
+    project: "sentitrade-hma"
+
+# Checkpointing
+checkpointing:
+  save_best: true
+  save_last: true
+  monitor: "val_sharpe_ratio"
+  mode: "max"
+  save_top_k: 3

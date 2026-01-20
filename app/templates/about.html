@@ -1,0 +1,384 @@
+{% extends "base.html" %} {% block content %}
+<div class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+  <div class="text-center mb-12">
+    <h1 class="text-4xl font-bold text-foreground">Methodology</h1>
+    <p class="mt-4 text-lg text-muted-foreground">
+      Technical details and research approach
+    </p>
+  </div>
+
+  <!-- Problem Definition -->
+  <section class="mb-12">
+    <div class="bg-white rounded-lg border border-border shadow-sm p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">
+        Problem Definition
+      </h2>
+      <p class="text-muted-foreground leading-relaxed mb-4">
+        Traditional sentiment analysis models struggle with the specialized
+        vocabulary and nuanced expressions common in financial discourse.
+        General-purpose models like VADER or TextBlob lack domain knowledge,
+        while even finance-specific models like FinBERT fail to capture the
+        hierarchical nature of sentiment across multiple data sources.
+      </p>
+      <p class="text-muted-foreground leading-relaxed">
+        Our research addresses this gap by developing a hierarchical
+        multi-source sentiment aggregation framework that combines
+        domain-specialized language models with temporal fusion transformers for
+        improved trading signals.
+      </p>
+    </div>
+  </section>
+
+  <!-- Dataset -->
+  <section class="mb-12">
+    <div class="bg-white rounded-lg border border-border shadow-sm p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">
+        Dataset Description
+      </h2>
+
+      <div class="space-y-4">
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">
+            Financial Sentiment Dataset
+          </h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>4,800+ labeled financial sentences</li>
+            <li>Three classes: Positive, Neutral, Negative</li>
+            <li>Sources: Financial news, earnings calls, analyst reports</li>
+            <li>5-fold cross-validation split</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">Time Series Data</h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>Tickers: AAPL, MSFT, GOOGL, AMZN, TSLA, META</li>
+            <li>Period: 2020-2025 (5+ years)</li>
+            <li>OHLCV data from Yahoo Finance</li>
+            <li>52 engineered features (technical indicators + sentiment)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">
+            Multi-Source Text Data
+          </h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li><strong>News:</strong> NewsAPI, Financial Times, Bloomberg</li>
+            <li>
+              <strong>Social Media:</strong> Twitter/X, StockTwits, Reddit
+            </li>
+            <li>
+              <strong>Earnings:</strong> Transcript excerpts, management
+              commentary
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Model Architecture -->
+  <section class="mb-12">
+    <div class="bg-white rounded-lg border border-border shadow-sm p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">
+        Model Architecture
+      </h2>
+
+      <div class="space-y-6">
+        <!-- Sentiment Model -->
+        <div>
+          <h3 class="text-lg font-semibold text-foreground mb-3">
+            1. Sentiment Analysis Model
+          </h3>
+          <div class="bg-muted/30 rounded-lg p-4">
+            <p class="text-sm text-muted-foreground mb-3">
+              <strong class="text-foreground">Base:</strong>
+              DistilBERT-base-uncased (66M parameters)
+            </p>
+            <p class="text-sm text-muted-foreground mb-3">
+              <strong class="text-foreground">Fine-tuning:</strong> QLoRA
+              (Quantized Low-Rank Adaptation)
+            </p>
+            <ul
+              class="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4"
+            >
+              <li>Rank (r): 8</li>
+              <li>Alpha: 16</li>
+              <li>Target modules: q_lin, v_lin (attention layers)</li>
+              <li>4-bit quantization for efficiency</li>
+              <li>Trainable parameters: ~1.5M (2.3% of total)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Aggregation -->
+        <div>
+          <h3 class="text-lg font-semibold text-foreground mb-3">
+            2. Hierarchical Sentiment Aggregation
+          </h3>
+          <div class="bg-muted/30 rounded-lg p-4">
+            <p class="text-sm text-muted-foreground mb-3">
+              Multi-level aggregation strategy:
+            </p>
+            <ol
+              class="list-decimal list-inside text-sm text-muted-foreground space-y-2 ml-4"
+            >
+              <li>
+                <strong class="text-foreground">Document-level:</strong> Average
+                sentiment across sentences in each article/post
+              </li>
+              <li>
+                <strong class="text-foreground">Source-level:</strong> Aggregate
+                by data source (news, social, transcripts)
+              </li>
+              <li>
+                <strong class="text-foreground">Temporal:</strong> Daily rolling
+                aggregation with confidence weighting
+              </li>
+              <li>
+                <strong class="text-foreground">Ticker-level:</strong> Combine
+                all sources for final sentiment score
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- TFT -->
+        <div>
+          <h3 class="text-lg font-semibold text-foreground mb-3">
+            3. Temporal Fusion Transformer (TFT)
+          </h3>
+          <div class="bg-muted/30 rounded-lg p-4">
+            <p class="text-sm text-muted-foreground mb-3">
+              <strong class="text-foreground">Architecture:</strong>
+              Multi-horizon time series forecasting
+            </p>
+            <ul
+              class="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4"
+            >
+              <li>Hidden size: 160</li>
+              <li>LSTM layers: 2</li>
+              <li>Attention heads: 4</li>
+              <li>Dropout: 0.1</li>
+              <li>Historical window: 60 days</li>
+              <li>Prediction horizon: 5 days</li>
+              <li>Features: 52 (technical indicators + sentiment scores)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Training Strategy -->
+  <section class="mb-12">
+    <div class="bg-white rounded-lg border border-border shadow-sm p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">Training Strategy</h2>
+
+      <div class="space-y-4">
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">
+            Sentiment Model Training
+          </h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>5-fold cross-validation for robust evaluation</li>
+            <li>Learning rate: 2e-4 with cosine annealing</li>
+            <li>Batch size: 16 (gradient accumulation: 2)</li>
+            <li>Epochs: 3-5 (early stopping on validation MCC)</li>
+            <li>Optimizer: AdamW with weight decay 0.01</li>
+            <li>Loss: Cross-entropy with class weights for balance</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">TFT Training</h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>Train/val/test split: 70%/15%/15%</li>
+            <li>Loss: Quantile loss (multiple quantiles)</li>
+            <li>Training time: ~23 hours on single GPU</li>
+            <li>Best checkpoint: Epoch 37 (val_loss=0.0237)</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">
+            Computational Resources
+          </h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>GPU: NVIDIA RTX 3090 / A100</li>
+            <li>RAM: 32GB</li>
+            <li>Training time: ~8 hours (sentiment) + 23 hours (TFT)</li>
+            <li>Inference: <100ms per text (CPU)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backtesting Methodology -->
+  <section class="mb-12">
+    <div class="bg-white rounded-lg border border-border shadow-sm p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">
+        Backtesting Methodology
+      </h2>
+
+      <div class="space-y-4">
+        <p class="text-muted-foreground leading-relaxed">
+          We employ
+          <strong class="text-foreground">walk-forward analysis</strong> to
+          simulate realistic trading conditions and avoid lookahead bias:
+        </p>
+
+        <div class="bg-muted/30 rounded-lg p-4">
+          <h3 class="font-semibold text-foreground mb-3">
+            Walk-Forward Process
+          </h3>
+          <ol
+            class="list-decimal list-inside text-sm text-muted-foreground space-y-2 ml-4"
+          >
+            <li>Train models on historical data (60-day window)</li>
+            <li>Predict next 5-day returns</li>
+            <li>Execute trades based on signals</li>
+            <li>Roll forward 1 month, retrain, repeat</li>
+            <li>Test period: September-November 2024 (3 months)</li>
+          </ol>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">Trading Rules</h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>
+              <strong>Long:</strong> Predicted return > 2% AND positive
+              sentiment > 0.5
+            </li>
+            <li>
+              <strong>Short:</strong> Predicted return < -2% AND negative
+              sentiment > 0.5
+            </li>
+            <li><strong>Hold:</strong> All other conditions</li>
+            <li>Position sizing: Equal weight across signals</li>
+            <li>Transaction costs: 10 bps + 5 bps slippage</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">
+            Performance Metrics
+          </h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-1 ml-4"
+          >
+            <li>Sharpe Ratio: Risk-adjusted returns</li>
+            <li>Maximum Drawdown: Worst peak-to-trough decline</li>
+            <li>Win Rate: Percentage of profitable trades</li>
+            <li>Diebold-Mariano Test: Statistical significance vs baselines</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Limitations -->
+  <section class="mb-12">
+    <div class="bg-white rounded-lg border border-border shadow-sm p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">
+        Limitations & Future Work
+      </h2>
+
+      <div class="space-y-4">
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">
+            Current Limitations
+          </h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-2 ml-4"
+          >
+            <li>
+              Limited to 6 large-cap tech stocks; generalization to other
+              sectors unclear
+            </li>
+            <li>
+              Sentiment labels are noisy proxies; may not capture true market
+              impact
+            </li>
+            <li>
+              Walk-forward test period (3 months) is relatively short for
+              statistical robustness
+            </li>
+            <li>
+              Does not account for market microstructure, liquidity constraints,
+              or execution delays
+            </li>
+            <li>
+              Assumes historical patterns persist; vulnerable to regime changes
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-semibold text-foreground mb-2">Future Directions</h3>
+          <ul
+            class="list-disc list-inside text-muted-foreground space-y-2 ml-4"
+          >
+            <li>Expand to broader universe of stocks and asset classes</li>
+            <li>Integrate real-time data streams and event detection</li>
+            <li>Develop adaptive weighting schemes for source aggregation</li>
+            <li>
+              Incorporate market regime detection and regime-specific models
+            </li>
+            <li>Explore reinforcement learning for dynamic position sizing</li>
+            <li>Deploy live paper trading for out-of-sample validation</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- References -->
+  <section class="mb-12">
+    <div class="bg-muted/50 rounded-lg p-8">
+      <h2 class="text-2xl font-bold text-foreground mb-4">Key References</h2>
+
+      <div class="space-y-3 text-sm text-muted-foreground">
+        <p>
+          <strong class="text-foreground">[1]</strong> Araci, D. (2019).
+          FinBERT: Financial Sentiment Analysis with Pre-trained Language
+          Models.
+        </p>
+        <p>
+          <strong class="text-foreground">[2]</strong> Dettmers, T., et al.
+          (2023). QLoRA: Efficient Finetuning of Quantized LLMs. NeurIPS.
+        </p>
+        <p>
+          <strong class="text-foreground">[3]</strong> Lim, B., et al. (2021).
+          Temporal Fusion Transformers for Interpretable Multi-horizon Time
+          Series Forecasting. International Journal of Forecasting.
+        </p>
+        <p>
+          <strong class="text-foreground">[4]</strong> Sanh, V., et al. (2019).
+          DistilBERT, a distilled version of BERT. NeurIPS Workshop.
+        </p>
+        <p>
+          <strong class="text-foreground">[5]</strong> Hu, E.J., et al. (2021).
+          LoRA: Low-Rank Adaptation of Large Language Models. ICLR.
+        </p>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

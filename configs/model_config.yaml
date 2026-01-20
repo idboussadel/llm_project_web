@@ -1,0 +1,196 @@
+# ============================================================================
+# SentiTrade-HMA - Model Configuration
+# ============================================================================
+
+# ===========================
+# OBJECTIF 1: Fine-Tuned LLM
+# ===========================
+sentiment_llm:
+  model_name: "meta-llama/Llama-2-7b-hf"
+  method: "qlora"
+  
+  # QLoRA Parameters
+  qlora:
+    r: 16  # LoRA rank
+    lora_alpha: 32
+    lora_dropout: 0.05
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+    bias: "none"
+    task_type: "CAUSAL_LM"
+    
+    # 4-bit Quantization
+    quantization:
+      load_in_4bit: true
+      bnb_4bit_compute_dtype: "float16"
+      bnb_4bit_quant_type: "nf4"
+      bnb_4bit_use_double_quant: true
+  
+  # Fine-tuning Dataset
+  dataset:
+    name: "FinancialPhraseBank"
+    original_size: 4840
+    augmented_size: 12000  # Via back-translation & paraphrasing
+    augmentation_methods:
+      - "back_translation"  # EN -> FR -> EN
+      - "paraphrasing"      # T5-based
+      - "synonym_replacement"
+    
+    split:
+      train: 0.7
+      val: 0.15
+      test: 0.15
+    
+    class_balance:
+      method: "oversampling"  # SMOTE for minority classes
+  
+  # Training
+  training:
+    batch_size: 4
+    gradient_accumulation_steps: 4
+    learning_rate: 2.0e-4
+    num_epochs: 3
+    warmup_ratio: 0.03
+    optimizer: "paged_adamw_32bit"
+    lr_scheduler: "cosine"
+    
+    # Validation
+    eval_strategy: "steps"
+    eval_steps: 100
+    save_steps: 100
+    logging_steps: 10
+    
+    # Hardware
+    fp16: false
+    bf16: false
+    max_grad_norm: 0.3
+    group_by_length: true
+  
+  # Target Performance (Fiche de projet)
+  benchmarks:
+    finbert_accuracy: 0.97  # Beat this
+    target_accuracy: 0.99
+
+# ===========================
+# OBJECTIF 3: Temporal Fusion Transformer
+# ===========================
+tft:
+  architecture:
+    hidden_size: 160
+    lstm_layers: 2
+    attention_heads: 4
+    dropout: 0.1
+    hidden_continuous_size: 8
+    
+  # Multi-Horizon Forecasting
+  prediction:
+    max_prediction_length: 5  # 5 jours
+    max_encoder_length: 60     # 60 jours historique
+    
+  # Variable Selection Networks (INTERPRETABILITY)
+  variable_selection:
+    enabled: true
+    static_categoricals: ["ticker"]
+    static_reals: []
+    
+    time_varying_known_categoricals: []
+    time_varying_known_reals: ["time_idx"]
+    
+    time_varying_unknown_categoricals: []
+    time_varying_unknown_reals:
+      # Multi-Source Sentiments
+      - "sentiment_news"
+      - "sentiment_social"
+      - "sentiment_transcripts"
+      - "sentiment_aggregated"  # Hierarchical aggregation
+      
+      # Technical Indicators
+      - "returns"
+      - "volatility"
+      - "rsi"
+      - "macd"
+      - "volume_ratio"
+      
+      # Price features
+      - "close"
+      - "high"
+      - "low"
+      - "volume"
+  
+  target: "future_returns"
+  
+  # Training
+  training:
+    batch_size: 128
+    learning_rate: 0.001
+    max_epochs: 50
+    gradient_clip_val: 0.1
+    
+    # Callbacks
+    early_stopping:
+      patience: 10
+      min_delta: 0.001
+      monitor: "val_loss"
+    
+    reduce_lr_on_plateau:
+      patience: 5
+      factor: 0.5
+      monitor: "val_loss"
+  
+  # Optimization
+  optimizer:
+    name: "ranger"  # RAdam + Lookahead
+    weight_decay: 0.0001
+
+# ===========================
+# Hierarchical Aggregation
+# ===========================
+aggregation:
+  method: "attention"  # Attention-based mechanism
+  
+  attention:
+    num_heads: 4
+    hidden_dim: 64
+    dropout: 0.1
+    
+  # Source Weights (Learnable)
+  initial_weights:
+    news: 0.4
+    social: 0.3
+    transcripts: 0.3
+  
+  # Temporal alignment
+  temporal_window: 24  # hours for alignment
+
+# ===========================
+# BASELINES (Pour comparaison)
+# ===========================
+baselines:
+  - name: "buy_and_hold"
+    enabled: true
+  
+  - name: "lstm_baseline"
+    enabled: true
+    config:
+      hidden_size: 64
+      num_layers: 2
+      dropout: 0.2
+  
+  - name: "gpt4_zero_shot"
+    enabled: false  # Coût élevé
+    model: "gpt-4"
+  
+  - name: "finbert"
+    enabled: true
+    model: "ProsusAI/finbert"
+    expected_accuracy: 0.97
+
+# Ensemble methods
+ensemble:
+  enabled: false
+  methods:
+    - "weighted_average"
+    - "stacking"
