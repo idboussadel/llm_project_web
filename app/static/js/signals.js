@@ -17,6 +17,9 @@ tickerSelect.addEventListener("change", (e) => {
   generateBtn.disabled = !e.target.value;
 });
 
+// Prevent multiple simultaneous requests
+let isGenerating = false;
+
 // Generate signal button
 generateBtn.addEventListener("click", async () => {
   const ticker = tickerSelect.value;
@@ -26,14 +29,29 @@ generateBtn.addEventListener("click", async () => {
     return;
   }
 
+  // Prevent duplicate requests
+  if (isGenerating) {
+    console.log("Request already in progress, ignoring duplicate click");
+    return;
+  }
+
   await generateTradingSignal(ticker);
 });
 
 // API: Generate trading signal
 async function generateTradingSignal(ticker) {
+  if (isGenerating) {
+    return; // Already processing
+  }
+
   try {
+    isGenerating = true;
     showLoading();
     hideError();
+
+    // Add timeout to prevent hanging requests (5 minutes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
 
     const response = await fetch("/api/signals/generate", {
       method: "POST",
@@ -43,20 +61,33 @@ async function generateTradingSignal(ticker) {
       body: JSON.stringify({
         ticker: ticker,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(errorData.error || `HTTP ${response.status}: Failed to generate signal`);
+    }
 
     const data = await response.json();
 
-    if (!response.ok || !data.success) {
+    if (!data.success) {
       throw new Error(data.error || "Failed to generate signal");
     }
 
     displayResults(data.result);
   } catch (error) {
     console.error("Signal generation error:", error);
-    showError(error.message || "Failed to generate trading signal");
+    if (error.name === 'AbortError') {
+      showError("Request timed out. The analysis is taking longer than expected. Please try again.");
+    } else {
+      showError(error.message || "Failed to generate trading signal");
+    }
     showEmptyState();
   } finally {
+    isGenerating = false;
     hideLoading();
   }
 }

@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
 
 import torch
 from torch.serialization import add_safe_globals
@@ -237,194 +239,186 @@ class TradingSignalService:
             logger.error(f"Error generating signals for {ticker}: {e}")
             raise
     
+    def _fetch_newsapi(self, ticker: str) -> List[str]:
+        """Fetch news from NewsAPI - helper for parallel execution"""
+        try:
+            from datetime import datetime, timedelta
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=7)
+            
+            url = 'https://newsapi.org/v2/everything'
+            params = {
+                'q': f'{ticker} stock OR {ticker} earnings',
+                'from': start_date.strftime('%Y-%m-%d'),
+                'to': end_date.strftime('%Y-%m-%d'),
+                'language': 'en',
+                'sortBy': 'publishedAt',
+                'pageSize': 100,
+                'apiKey': self.news_api_key
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                articles = data.get('articles', [])
+                if articles:
+                    result = [a.get('title', '') + '. ' + (a.get('description', '') or '') 
+                             for a in articles if a.get('title')]
+                    logger.info(f"Collected {len(result)} real news articles from NewsAPI")
+                    return result
+                else:
+                    logger.warning("No articles found from NewsAPI")
+                    return []
+            else:
+                logger.error(f"NewsAPI error: {response.status_code} - {response.text}")
+                return []
+        except Exception as e:
+            logger.error(f"Failed to fetch from NewsAPI: {e}")
+            return []
+    
+    def _fetch_finnhub(self, ticker: str) -> List[str]:
+        """Fetch social data from Finnhub - helper for parallel execution"""
+        try:
+            from datetime import datetime, timedelta
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=30)
+            
+            url = f'https://finnhub.io/api/v1/company-news'
+            params = {
+                'symbol': ticker,
+                'from': start_date.strftime('%Y-%m-%d'),
+                'to': end_date.strftime('%Y-%m-%d'),
+                'token': self.finnhub_api_key
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    result = [item.get('headline', '') + '. ' + (item.get('summary', '') or '') 
+                             for item in data if item.get('headline')]
+                    logger.info(f"Collected {len(result)} items from Finnhub")
+                    return result
+                else:
+                    logger.warning(f"No Finnhub data for {ticker}")
+                    return []
+            else:
+                logger.error(f"Finnhub API error: {response.status_code}")
+                return []
+        except Exception as e:
+            logger.error(f"Failed to fetch from Finnhub: {e}")
+            return []
+    
+    def _fetch_fmp(self, ticker: str) -> List[str]:
+        """Fetch earnings data from FMP - helper for parallel execution"""
+        try:
+            base_url = 'https://financialmodelingprep.com/stable'
+            endpoints = [
+                f'{base_url}/income-statement?symbol={ticker}&period=quarter&limit=1',
+                f'{base_url}/profile?symbol={ticker}',
+            ]
+            
+            for endpoint in endpoints:
+                try:
+                    url = f'{endpoint}&apikey={self.fmp_api_key}'
+                    response = requests.get(url, timeout=10)
+                    
+                    logger.info(f"FMP trying: {endpoint}")
+                    logger.info(f"FMP Status: {response.status_code}")
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        if 'income-statement' in endpoint and data and len(data) > 0:
+                            stmt = data[0]
+                            date = stmt.get('date', 'Recent quarter')
+                            revenue = stmt.get('revenue', 0)
+                            net_income = stmt.get('netIncome', 0)
+                            eps = stmt.get('eps', 0)
+                            period = stmt.get('period', 'Q')
+                            
+                            result = [
+                                f"{ticker} {period} earnings for {date}: Revenue of ${revenue:,.0f}",
+                                f"Net income was ${net_income:,.0f} for the quarter",
+                                f"Diluted EPS came in at ${eps:.2f} per share"
+                            ]
+                            logger.info(f"Collected {ticker} earnings data from {date} income statement")
+                            return result
+                        
+                        elif 'profile' in endpoint and data and len(data) > 0:
+                            profile = data[0]
+                            description = profile.get('description', '')
+                            if description:
+                                sentences = description.split('. ')
+                                result = [s + '.' for s in sentences if len(s) > 20]
+                                logger.info(f"Using company profile as earnings context")
+                                return result
+                    
+                    elif response.status_code == 403:
+                        logger.warning(f"FMP 403 for {endpoint}: {response.text[:200]}")
+                        continue
+                    else:
+                        logger.warning(f"FMP error {response.status_code} for {endpoint}")
+                        continue
+                except Exception as e:
+                    logger.warning(f"Failed endpoint {endpoint}: {e}")
+                    continue
+            
+            logger.error("FMP earnings endpoints failed - check API key and subscription plan")
+            return []
+        except Exception as e:
+            logger.error(f"Failed to fetch earnings from FMP: {e}")
+            return []
+    
     def _collect_multi_source_data(self, ticker: str) -> Dict:
-        """Collect data from multiple sources - using REAL APIs"""
+        """Collect data from multiple sources in parallel - OPTIMIZED"""
         sources = {}
         
-        # News data - use NewsAPI
+        # Prepare tasks for parallel execution
+        tasks = {}
+        
         if self.news_api_key:
-            try:
-                logger.info(f"Fetching news from NewsAPI for {ticker}...")
-                from datetime import datetime, timedelta
-                import requests
-                
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=7)
-                
-                url = 'https://newsapi.org/v2/everything'
-                params = {
-                    'q': f'{ticker} stock OR {ticker} earnings',
-                    'from': start_date.strftime('%Y-%m-%d'),
-                    'to': end_date.strftime('%Y-%m-%d'),
-                    'language': 'en',
-                    'sortBy': 'publishedAt',
-                    'pageSize': 100,  # Increased limit to get more articles
-                    'apiKey': self.news_api_key
-                }
-                
-                response = requests.get(url, params=params, timeout=10)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    articles = data.get('articles', [])
-                    if articles:
-                        sources['news'] = [a.get('title', '') + '. ' + (a.get('description', '') or '') 
-                                         for a in articles if a.get('title')]
-                        logger.info(f"Collected {len(sources['news'])} real news articles from NewsAPI")
-                    else:
-                        logger.warning("No articles found from NewsAPI")
-                        sources['news'] = []
-                else:
-                    logger.error(f"NewsAPI error: {response.status_code} - {response.text}")
-                    sources['news'] = []
-                    
-            except Exception as e:
-                logger.error(f"Failed to fetch from NewsAPI: {e}")
-                logger.warning("NewsAPI request failed - returning empty news list")
-                sources['news'] = []
+            tasks['news'] = (self._fetch_newsapi, ticker)
         else:
             logger.error("No NewsAPI key configured - cannot fetch news")
             sources['news'] = []
         
-        # Social media - use Finnhub news sentiment API
         if self.finnhub_api_key:
-            try:
-                logger.info(f"Fetching social sentiment from Finnhub for {ticker}...")
-                import requests
-                from datetime import datetime, timedelta
-                
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=30)
-                
-                url = f'https://finnhub.io/api/v1/company-news'
-                params = {
-                    'symbol': ticker,
-                    'from': start_date.strftime('%Y-%m-%d'),
-                    'to': end_date.strftime('%Y-%m-%d'),
-                    'token': self.finnhub_api_key
-                }
-                
-                response = requests.get(url, params=params, timeout=10)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if data and len(data) > 0:
-                        # Use all available data, no artificial limit
-                        sources['social'] = [item.get('headline', '') + '. ' + (item.get('summary', '') or '') 
-                                           for item in data if item.get('headline')]
-                        logger.info(f"Collected {len(sources['social'])} items from Finnhub")
-                    else:
-                        logger.warning(f"No Finnhub data for {ticker}")
-                        sources['social'] = []
-                else:
-                    logger.error(f"Finnhub API error: {response.status_code}")
-                    sources['social'] = []
-                    
-            except Exception as e:
-                logger.error(f"Failed to fetch from Finnhub: {e}")
-                sources['social'] = []
+            tasks['social'] = (self._fetch_finnhub, ticker)
         else:
             logger.error("No Finnhub API key configured - cannot fetch social data")
             sources['social'] = []
         
-        # Earnings data - use FMP API with correct endpoints from documentation
         if self.fmp_api_key:
-            try:
-                logger.info(f"Fetching earnings data from FMP for {ticker}...")
-                import requests
-                
-                # Use correct base URL and endpoints from FMP docs
-                base_url = 'https://financialmodelingprep.com/stable'
-                
-                # Try income statement as primary source for earnings data
-                endpoints = [
-                    f'{base_url}/income-statement?symbol={ticker}&period=quarter&limit=1',
-                    f'{base_url}/profile?symbol={ticker}',  # Company profile as fallback
-                ]
-                
-                earnings_data = []
-                success = False
-                
-                for endpoint in endpoints:
-                    try:
-                        # API key is passed as parameter according to docs
-                        url = f'{endpoint}&apikey={self.fmp_api_key}'
-                        response = requests.get(url, timeout=10)
-                        
-                        logger.info(f"FMP trying: {endpoint}")
-                        logger.info(f"FMP Status: {response.status_code}")
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            
-                            # Handle income statement
-                            if 'income-statement' in endpoint and data and len(data) > 0:
-                                stmt = data[0]
-                                date = stmt.get('date', 'Recent quarter')
-                                revenue = stmt.get('revenue', 0)
-                                net_income = stmt.get('netIncome', 0)
-                                eps = stmt.get('eps', 0)
-                                period = stmt.get('period', 'Q')
-                                
-                                earnings_data = [
-                                    f"{ticker} {period} earnings for {date}: Revenue of ${revenue:,.0f}",
-                                    f"Net income was ${net_income:,.0f} for the quarter",
-                                    f"Diluted EPS came in at ${eps:.2f} per share"
-                                ]
-                                success = True
-                                logger.info(f"Collected {ticker} earnings data from {date} income statement")
-                                break
-                            
-                            # Handle company profile fallback
-                            elif 'profile' in endpoint and data and len(data) > 0:
-                                profile = data[0]
-                                description = profile.get('description', '')
-                                if description:
-                                    # Use all sentences from company description, no limit
-                                    sentences = description.split('. ')
-                                    earnings_data = [s + '.' for s in sentences if len(s) > 20]
-                                    success = True
-                                    logger.info(f"Using company profile as earnings context")
-                                    break
-                        
-                        elif response.status_code == 403:
-                            logger.warning(f"FMP 403 for {endpoint}: {response.text[:200]}")
-                            continue
-                        else:
-                            logger.warning(f"FMP error {response.status_code} for {endpoint}")
-                            continue
-                            
-                    except Exception as e:
-                        logger.warning(f"Failed endpoint {endpoint}: {e}")
-                        continue
-                
-                if success:
-                    sources['earnings'] = earnings_data
-                else:
-                    logger.error("FMP earnings endpoints failed - check API key and subscription plan")
-                    sources['earnings'] = []
-                    
-            except Exception as e:
-                logger.error(f"Failed to fetch earnings from FMP: {e}")
-                sources['earnings'] = []  # Return empty instead of fake data
+            tasks['earnings'] = (self._fetch_fmp, ticker)
         else:
             logger.error("No FMP API key configured - cannot fetch earnings transcripts")
-            sources['earnings'] = []  # Return empty instead of fake data
+            sources['earnings'] = []
+        
+        # Execute all API calls in parallel using ThreadPoolExecutor
+        logger.info(f"Fetching data from {len(tasks)} sources in parallel for {ticker}...")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {executor.submit(func, *args): key for key, (func, *args) in tasks.items()}
+            
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    result = future.result(timeout=15)  # 15 second timeout per API call
+                    sources[key] = result
+                except Exception as e:
+                    logger.error(f"Error fetching {key} data: {e}")
+                    sources[key] = []
         
         return sources
     
-    def _analyze_multi_source_sentiment(
-        self,
-        sources_data: Dict,
-        sentiment_service
-    ) -> Dict:
-        """Analyze sentiment for each source"""
-        results = {}
+    def _analyze_single_source(self, source_name: str, texts: List[str], sentiment_service) -> Dict:
+        """Analyze sentiment for a single source - helper for parallel execution"""
+        if not texts:
+            return None
         
-        for source_name, texts in sources_data.items():
-            if not texts:
-                continue
-            
+        try:
             # Batch analyze
             sentiments = sentiment_service.predict(texts, return_probs=True)
             
@@ -433,7 +427,6 @@ class TradingSignalService:
             avg_confidence = np.mean([s['confidence'] for s in sentiments])
             
             # Determine dominant sentiment
-            scores = [s['score'] for s in sentiments]
             if avg_score > 0.3:
                 dominant = 'positive'
             elif avg_score < -0.3:
@@ -441,17 +434,63 @@ class TradingSignalService:
             else:
                 dominant = 'neutral'
             
-            results[source_name] = {
+            return {
+                'source_name': source_name,
                 'texts': texts,
                 'individual_sentiments': sentiments,
                 'average_score': float(avg_score),
                 'average_confidence': float(avg_confidence),
                 'dominant_sentiment': dominant,
-                'sentiment': dominant,  # Add alias for frontend compatibility
-                'score': float(avg_score),  # Add alias for frontend compatibility  
-                'confidence': float(avg_confidence),  # Add alias for frontend compatibility
+                'sentiment': dominant,
+                'score': float(avg_score),
+                'confidence': float(avg_confidence),
                 'count': len(texts)
             }
+        except Exception as e:
+            logger.error(f"Error analyzing sentiment for {source_name}: {e}")
+            return None
+    
+    def _analyze_multi_source_sentiment(
+        self,
+        sources_data: Dict,
+        sentiment_service
+    ) -> Dict:
+        """Analyze sentiment for each source in parallel - OPTIMIZED"""
+        results = {}
+        
+        # Prepare tasks for parallel execution
+        tasks = [(source_name, texts) for source_name, texts in sources_data.items() if texts]
+        
+        if not tasks:
+            return results
+        
+        # Execute sentiment analysis in parallel
+        logger.info(f"Analyzing sentiment for {len(tasks)} sources in parallel...")
+        with ThreadPoolExecutor(max_workers=min(len(tasks), 3)) as executor:
+            futures = {
+                executor.submit(self._analyze_single_source, source_name, texts, sentiment_service): source_name
+                for source_name, texts in tasks
+            }
+            
+            for future in as_completed(futures):
+                source_name = futures[future]
+                try:
+                    result = future.result(timeout=60)  # 60 second timeout per source
+                    if result:
+                        results[result['source_name']] = {
+                            'texts': result['texts'],
+                            'individual_sentiments': result['individual_sentiments'],
+                            'average_score': result['average_score'],
+                            'average_confidence': result['average_confidence'],
+                            'dominant_sentiment': result['dominant_sentiment'],
+                            'sentiment': result['sentiment'],
+                            'score': result['score'],
+                            'confidence': result['confidence'],
+                            'count': result['count']
+                        }
+                except Exception as e:
+                    logger.error(f"Error processing sentiment for {source_name}: {e}")
+                    # Continue with other sources even if one fails
         
         return results
     
@@ -519,14 +558,10 @@ class TradingSignalService:
             max_encoder = self.tft_config.get('max_encoder_length', 60)
             max_decoder = self.tft_config.get('max_prediction_length', 5)
             max_lag = 5  # Highest lag we engineer
-            lookback_buffer_days = 365  # Large buffer for indicator windows (≈1.5 trading years)
-            lookback_days = max_encoder + max_decoder + max_lag + lookback_buffer_days
             
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=lookback_days)
-            
-            # Download data from yfinance
-            df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+            # Optimize: Use period='2y' for faster download (yfinance optimizes this better)
+            # This provides ~500 trading days, which is more than enough for indicators
+            df = yf.download(ticker, period='2y', progress=False, show_errors=False)
             
             if df.empty or len(df) < max_encoder:
                 raise ValueError(f"Insufficient data for {ticker}: got {len(df)} rows, need {max_encoder}")

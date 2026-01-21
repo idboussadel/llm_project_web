@@ -56,6 +56,7 @@ COPY . .
 EXPOSE 8080
 
 # Use gunicorn on port 8080 with 1 worker (models are too large for multiple workers)
+# Using gevent async workers for better I/O handling with parallel API calls
 # Railway will automatically route traffic to this port
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "300", "--worker-class", "sync", "wsgi:app"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "300", "--worker-class", "gevent", "--worker-connections", "1000", "wsgi:app"]
 
