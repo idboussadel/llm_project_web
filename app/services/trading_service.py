@@ -282,7 +282,7 @@ class TradingSignalService:
         try:
             from datetime import datetime, timedelta
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=30)
+            start_date = end_date - timedelta(days=14)  # Reduced from 30 to 14 days for faster API response
             
             url = f'https://finnhub.io/api/v1/company-news'
             params = {
@@ -297,9 +297,18 @@ class TradingSignalService:
             if response.status_code == 200:
                 data = response.json()
                 if data and len(data) > 0:
-                    result = [item.get('headline', '') + '. ' + (item.get('summary', '') or '') 
-                             for item in data if item.get('headline')]
-                    logger.info(f"Collected {len(result)} items from Finnhub")
+                    # Limit to 100 most recent items (sorted by date, most recent first)
+                    # Filter items with headlines and limit to 100
+                    result = []
+                    for item in data[:100]:  # Take first 100 items (API returns most recent first)
+                        headline = item.get('headline', '')
+                        if headline:
+                            text = headline + '. ' + (item.get('summary', '') or '')
+                            result.append(text)
+                            if len(result) >= 100:  # Stop at 100 items
+                                break
+                    
+                    logger.info(f"Collected {len(result)} items from Finnhub (limited to 100)")
                     return result
                 else:
                     logger.warning(f"No Finnhub data for {ticker}")
@@ -423,11 +432,13 @@ class TradingSignalService:
             import os
             is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None or os.getenv('RAILWAY_SERVICE_NAME') is not None
             
-            # Use smaller batches on Railway to avoid OOM (32-48), larger locally (64-128)
+            # Optimized batch sizes: Since we limit social media to 100 texts, we can use slightly larger batches
+            # Railway: 40 (up from 32 since max is now 100 instead of 250+)
+            # Local: 64 (good balance)
             if is_railway:
-                # Railway has limited memory - use smaller batches to prevent OOM kills
-                max_batch_size = 32
-                logger.info(f"Railway environment detected - using conservative batch_size={max_batch_size}")
+                # Railway - optimized for 100 text limit (was 32 for 250+ texts)
+                max_batch_size = 40
+                logger.info(f"Railway environment detected - using optimized batch_size={max_batch_size}")
             else:
                 # Local development - can use larger batches
                 max_batch_size = 64

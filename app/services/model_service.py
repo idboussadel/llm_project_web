@@ -133,8 +133,8 @@ class SentimentModelService:
         if batch_size is None:
             import os
             is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None or os.getenv('RAILWAY_SERVICE_NAME') is not None
-            # Use smaller batches on Railway to prevent OOM, larger locally
-            batch_size = 32 if is_railway else 64
+            # Optimized: Railway 40 (up from 32 since max texts per source is now 100), Local 64
+            batch_size = 40 if is_railway else 64
         
         results = []
         
@@ -156,13 +156,20 @@ class SentimentModelService:
         if not texts:
             return []
         
-        # Tokenize
+        # Pre-filter empty texts for faster processing
+        non_empty_texts = [t.strip() for t in texts if t and t.strip()]
+        if not non_empty_texts:
+            # Return neutral sentiment for empty texts
+            return [{'label': 'neutral', 'score': 0.0, 'confidence': 0.5}] * len(texts)
+        
+        # Optimized tokenization: use faster settings
         inputs = self.tokenizer(
-            texts,
+            non_empty_texts,
             padding=True,
             truncation=True,
-            max_length=512,
-            return_tensors='pt'
+            max_length=256,  # Reduced from 512 - most financial texts are shorter, faster processing
+            return_tensors='pt',
+            add_special_tokens=True
         )
         
         # Move to device
@@ -177,7 +184,7 @@ class SentimentModelService:
         # Vectorized operations for better performance
         # Get predicted labels and confidences in batch
         pred_indices = torch.argmax(probs, dim=-1)  # Shape: [batch_size]
-        confidences = probs[torch.arange(len(texts)), pred_indices]  # Shape: [batch_size]
+        confidences = probs[torch.arange(len(non_empty_texts)), pred_indices]  # Shape: [batch_size]
         
         # Calculate sentiment scores vectorized
         # probs shape: [batch_size, 3] where columns are [negative, neutral, positive]
@@ -198,7 +205,10 @@ class SentimentModelService:
         
         # Build results list efficiently
         results = []
-        for i in range(len(texts)):
+        empty_text_count = len(texts) - len(non_empty_texts)
+        
+        # Process non-empty texts
+        for i in range(len(non_empty_texts)):
             pred_idx = int(pred_indices_np[i])
             label = self.label_map[pred_idx]
             confidence = float(confidences_np[i])
@@ -217,6 +227,23 @@ class SentimentModelService:
                 }
             
             results.append(result)
+        
+        # Add neutral results for empty texts (maintain original order)
+        if empty_text_count > 0:
+            empty_result = {'label': 'neutral', 'score': 0.0, 'confidence': 0.5}
+            if return_probs:
+                empty_result['probabilities'] = {'negative': 0.33, 'neutral': 0.34, 'positive': 0.33}
+            
+            # Insert empty results at original positions
+            original_idx = 0
+            final_results = []
+            for text in texts:
+                if text and text.strip():
+                    final_results.append(results[original_idx])
+                    original_idx += 1
+                else:
+                    final_results.append(empty_result.copy())
+            return final_results
         
         return results
     
