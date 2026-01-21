@@ -419,13 +419,30 @@ class TradingSignalService:
             return None
         
         try:
-            # Use large batch size for CPU inference (64-128 is optimal for DistilBERT on CPU)
-            # This processes all texts efficiently without sampling
-            batch_size = min(128, len(texts))  # Use up to 128, but don't exceed text count
+            # Detect Railway environment (limited memory) vs local (more memory)
+            import os
+            is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None or os.getenv('RAILWAY_SERVICE_NAME') is not None
+            
+            # Use smaller batches on Railway to avoid OOM (32-48), larger locally (64-128)
+            if is_railway:
+                # Railway has limited memory - use smaller batches to prevent OOM kills
+                max_batch_size = 32
+                logger.info(f"Railway environment detected - using conservative batch_size={max_batch_size}")
+            else:
+                # Local development - can use larger batches
+                max_batch_size = 64
+            
+            batch_size = min(max_batch_size, len(texts))  # Don't exceed text count
             logger.info(f"Analyzing {len(texts)} texts for {source_name} with batch_size={batch_size}")
             
             # Batch analyze with optimized batch size
             sentiments = sentiment_service.predict(texts, return_probs=True, batch_size=batch_size)
+            
+            # Clear memory after processing large batches (helpful on Railway)
+            if len(texts) > 50 and is_railway:
+                import gc
+                gc.collect()
+                logger.debug(f"Garbage collected after processing {len(texts)} texts")
             
             # Calculate source-level aggregates
             avg_score = np.mean([s['score'] for s in sentiments])

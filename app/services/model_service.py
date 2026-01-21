@@ -109,7 +109,7 @@ class SentimentModelService:
         self,
         text: Union[str, List[str]],
         return_probs: bool = True,
-        batch_size: int = 64  # Increased default for better CPU performance
+        batch_size: Optional[int] = None  # Auto-detect based on environment
     ) -> Union[Dict, List[Dict]]:
         """
         Predict sentiment for text input(s)
@@ -129,6 +129,13 @@ class SentimentModelService:
         is_single = isinstance(text, str)
         texts = [text] if is_single else text
         
+        # Auto-detect batch size if not provided
+        if batch_size is None:
+            import os
+            is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None or os.getenv('RAILWAY_SERVICE_NAME') is not None
+            # Use smaller batches on Railway to prevent OOM, larger locally
+            batch_size = 32 if is_railway else 64
+        
         results = []
         
         # Process in batches
@@ -136,6 +143,11 @@ class SentimentModelService:
             batch = texts[i:i + batch_size]
             batch_results = self._predict_batch(batch, return_probs)
             results.extend(batch_results)
+            
+            # Clear memory after large batches (especially important on Railway)
+            if len(texts) > 50 and i % (batch_size * 2) == 0:
+                import gc
+                gc.collect()
         
         return results[0] if is_single else results
     
@@ -179,6 +191,10 @@ class SentimentModelService:
         confidences_np = confidences.cpu().numpy()
         scores_np = scores.cpu().numpy()
         probs_np = probs.cpu().numpy()
+        
+        # Clear GPU/CPU tensors immediately to free memory
+        del inputs, outputs, logits, probs, pred_indices, confidences
+        del neg_probs, neu_probs, pos_probs, scores
         
         # Build results list efficiently
         results = []
