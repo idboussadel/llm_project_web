@@ -414,13 +414,18 @@ class TradingSignalService:
         return sources
     
     def _analyze_single_source(self, source_name: str, texts: List[str], sentiment_service) -> Dict:
-        """Analyze sentiment for a single source - helper for parallel execution"""
+        """Analyze sentiment for a single source with optimized batch processing"""
         if not texts:
             return None
         
         try:
-            # Batch analyze
-            sentiments = sentiment_service.predict(texts, return_probs=True)
+            # Use large batch size for CPU inference (64-128 is optimal for DistilBERT on CPU)
+            # This processes all texts efficiently without sampling
+            batch_size = min(128, len(texts))  # Use up to 128, but don't exceed text count
+            logger.info(f"Analyzing {len(texts)} texts for {source_name} with batch_size={batch_size}")
+            
+            # Batch analyze with optimized batch size
+            sentiments = sentiment_service.predict(texts, return_probs=True, batch_size=batch_size)
             
             # Calculate source-level aggregates
             avg_score = np.mean([s['score'] for s in sentiments])
@@ -433,6 +438,8 @@ class TradingSignalService:
                 dominant = 'negative'
             else:
                 dominant = 'neutral'
+            
+            logger.info(f"Completed {source_name}: {len(texts)} texts analyzed, avg_score={avg_score:.3f}")
             
             return {
                 'source_name': source_name,
@@ -455,43 +462,43 @@ class TradingSignalService:
         sources_data: Dict,
         sentiment_service
     ) -> Dict:
-        """Analyze sentiment for each source in parallel - OPTIMIZED"""
+        """
+        Analyze sentiment for each source sequentially
+        NOTE: PyTorch models are NOT thread-safe, so we MUST process sequentially
+        but with optimized large batch sizes for speed
+        """
         results = {}
         
-        # Prepare tasks for parallel execution
-        tasks = [(source_name, texts) for source_name, texts in sources_data.items() if texts]
+        # Process sources sequentially (PyTorch models aren't thread-safe)
+        # But with large batch sizes (64-128), this is still fast
+        sources_with_texts = [(name, texts) for name, texts in sources_data.items() if texts]
         
-        if not tasks:
+        if not sources_with_texts:
             return results
         
-        # Execute sentiment analysis in parallel
-        logger.info(f"Analyzing sentiment for {len(tasks)} sources in parallel...")
-        with ThreadPoolExecutor(max_workers=min(len(tasks), 3)) as executor:
-            futures = {
-                executor.submit(self._analyze_single_source, source_name, texts, sentiment_service): source_name
-                for source_name, texts in tasks
-            }
-            
-            for future in as_completed(futures):
-                source_name = futures[future]
-                try:
-                    result = future.result(timeout=60)  # 60 second timeout per source
-                    if result:
-                        results[result['source_name']] = {
-                            'texts': result['texts'],
-                            'individual_sentiments': result['individual_sentiments'],
-                            'average_score': result['average_score'],
-                            'average_confidence': result['average_confidence'],
-                            'dominant_sentiment': result['dominant_sentiment'],
-                            'sentiment': result['sentiment'],
-                            'score': result['score'],
-                            'confidence': result['confidence'],
-                            'count': result['count']
-                        }
-                except Exception as e:
-                    logger.error(f"Error processing sentiment for {source_name}: {e}")
-                    # Continue with other sources even if one fails
+        total_texts = sum(len(texts) for _, texts in sources_with_texts)
+        logger.info(f"Analyzing sentiment for {len(sources_with_texts)} sources ({total_texts} total texts)...")
         
+        for source_name, texts in sources_with_texts:
+            try:
+                result = self._analyze_single_source(source_name, texts, sentiment_service)
+                if result:
+                    results[result['source_name']] = {
+                        'texts': result['texts'],
+                        'individual_sentiments': result['individual_sentiments'],
+                        'average_score': result['average_score'],
+                        'average_confidence': result['average_confidence'],
+                        'dominant_sentiment': result['dominant_sentiment'],
+                        'sentiment': result['sentiment'],
+                        'score': result['score'],
+                        'confidence': result['confidence'],
+                        'count': result['count']
+                    }
+            except Exception as e:
+                logger.error(f"Error processing sentiment for {source_name}: {e}")
+                # Continue with other sources even if one fails
+        
+        logger.info(f"Completed sentiment analysis for {len(results)} sources")
         return results
     
     def _hierarchical_aggregation(self, sentiment_results: Dict) -> Dict:

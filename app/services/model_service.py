@@ -109,7 +109,7 @@ class SentimentModelService:
         self,
         text: Union[str, List[str]],
         return_probs: bool = True,
-        batch_size: int = 16
+        batch_size: int = 64  # Increased default for better CPU performance
     ) -> Union[Dict, List[Dict]]:
         """
         Predict sentiment for text input(s)
@@ -140,7 +140,10 @@ class SentimentModelService:
         return results[0] if is_single else results
     
     def _predict_batch(self, texts: List[str], return_probs: bool) -> List[Dict]:
-        """Internal method for batch prediction"""
+        """Internal method for batch prediction - optimized for speed"""
+        if not texts:
+            return []
+        
         # Tokenize
         inputs = self.tokenizer(
             texts,
@@ -153,44 +156,49 @@ class SentimentModelService:
         # Move to device
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         
-        # Inference
+        # Inference with torch.no_grad for better performance
         with torch.no_grad():
             outputs = self.model(**inputs)
             logits = outputs.logits
             probs = torch.softmax(logits, dim=-1)
         
-        # Convert to results
+        # Vectorized operations for better performance
+        # Get predicted labels and confidences in batch
+        pred_indices = torch.argmax(probs, dim=-1)  # Shape: [batch_size]
+        confidences = probs[torch.arange(len(texts)), pred_indices]  # Shape: [batch_size]
+        
+        # Calculate sentiment scores vectorized
+        # probs shape: [batch_size, 3] where columns are [negative, neutral, positive]
+        neg_probs = probs[:, 0]  # negative probabilities
+        neu_probs = probs[:, 1]  # neutral probabilities  
+        pos_probs = probs[:, 2]  # positive probabilities
+        scores = (-1.0 * neg_probs) + (0.0 * neu_probs) + (1.0 * pos_probs)  # Shape: [batch_size]
+        
+        # Convert to CPU numpy for faster conversion
+        pred_indices_np = pred_indices.cpu().numpy()
+        confidences_np = confidences.cpu().numpy()
+        scores_np = scores.cpu().numpy()
+        probs_np = probs.cpu().numpy()
+        
+        # Build results list efficiently
         results = []
-        for prob_dist in probs:
-            prob_dict = {
-                self.label_map[i]: prob_dist[i].item()
-                for i in range(len(prob_dist))
-            }
-            
-            # Get predicted label
-            pred_idx = torch.argmax(prob_dist).item()
+        for i in range(len(texts)):
+            pred_idx = int(pred_indices_np[i])
             label = self.label_map[pred_idx]
-            confidence = prob_dist[pred_idx].item()
+            confidence = float(confidences_np[i])
+            score = float(scores_np[i])
             
-            # Calculate continuous sentiment score from probabilities
-            # Use weighted average: negative=-1, neutral=0, positive=+1
-            # This gives more nuanced scores than discrete -1/0/1
-            neg_prob = prob_dict.get('negative', 0.0)
-            neu_prob = prob_dict.get('neutral', 0.0)
-            pos_prob = prob_dict.get('positive', 0.0)
-            
-            # Continuous score: weighted by probabilities
-            score = (-1.0 * neg_prob) + (0.0 * neu_prob) + (1.0 * pos_prob)
-            
-            # Also keep discrete label for compatibility
             result = {
                 'label': label,
-                'score': float(score),  # Continuous score in range [-1, 1]
+                'score': score,
                 'confidence': confidence
             }
             
             if return_probs:
-                result['probabilities'] = prob_dict
+                result['probabilities'] = {
+                    self.label_map[j]: float(probs_np[i, j])
+                    for j in range(len(self.label_map))
+                }
             
             results.append(result)
         
