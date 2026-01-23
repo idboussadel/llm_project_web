@@ -14,11 +14,13 @@ class DataService:
     """Service for loading pre-computed results and metrics"""
     
     def __init__(self, results_path: Path, final_results_json: Path, 
-                 qlora_results_json: Path, test_metrics_json: Path):
+                 qlora_results_json: Path, test_metrics_json: Path,
+                 ablation_studies_json: Path = None):
         self.results_path = Path(results_path)
         self.final_results_json = Path(final_results_json)
         self.qlora_results_json = Path(qlora_results_json)
         self.test_metrics_json = Path(test_metrics_json)
+        self.ablation_studies_json = Path(ablation_studies_json) if ablation_studies_json else None
     
     @lru_cache(maxsize=1)
     def get_final_results(self) -> Dict:
@@ -48,6 +50,19 @@ class DataService:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to load TFT metrics: {e}")
+            return {}
+    
+    @lru_cache(maxsize=1)
+    def get_ablation_studies(self) -> Dict:
+        """Load ablation studies results"""
+        if not self.ablation_studies_json or not self.ablation_studies_json.exists():
+            logger.warning("Ablation studies JSON not found")
+            return {}
+        try:
+            with open(self.ablation_studies_json, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load ablation studies: {e}")
             return {}
     
     def get_all_metrics(self) -> Dict:

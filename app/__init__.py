@@ -43,7 +43,8 @@ def create_app(config_name=None):
         results_path=app.config['RESULTS_PATH'],
         final_results_json=app.config['FINAL_RESULTS_JSON'],
         qlora_results_json=app.config['QLORA_RESULTS_JSON'],
-        test_metrics_json=app.config['TEST_METRICS_JSON']
+        test_metrics_json=app.config['TEST_METRICS_JSON'],
+        ablation_studies_json=app.config.get('ABLATION_STUDIES_JSON')
     )
     
     # Load sentiment model

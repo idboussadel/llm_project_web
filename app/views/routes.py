@@ -20,33 +20,6 @@ def analyze():
     return render_template('analyze.html', title='Analyze Sentiment', examples=examples)
 
 
-@views_bp.route('/results')
-def results():
-    """Results dashboard - Model metrics and performance"""
-    try:
-        # Get data service from app context
-        ds = current_app.data_service
-        # Load all metrics
-        backtesting = ds.get_final_results()
-        sentiment_metrics = ds.get_sentiment_metrics()
-        tft_metrics = ds.get_tft_metrics()
-        
-        return render_template(
-            'results.html',
-            title='Results & Metrics',
-            backtesting=backtesting,
-            sentiment_metrics=sentiment_metrics,
-            tft_metrics=tft_metrics
-        )
-    except Exception as e:
-        current_app.logger.error(f"Error loading results: {e}")
-        return render_template(
-            'results.html',
-            title='Results & Metrics',
-            error=str(e)
-        )
-
-
 @views_bp.route('/about')
 def about():
     """About page - Methodology and technical details"""
@@ -57,3 +30,25 @@ def about():
 def signals():
     """Trading signals page - Full pipeline demo"""
     return render_template('signals.html', title='Trading Signals')
+
+
+@views_bp.route('/ablation')
+def ablation():
+    """Ablation studies page - Comprehensive component analysis"""
+    try:
+        # Get data service from app context
+        ds = current_app.data_service
+        ablation_data = ds.get_ablation_studies()
+        
+        return render_template(
+            'ablation.html',
+            title='Ablation Studies',
+            ablation_data=ablation_data
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error loading ablation studies: {e}")
+        return render_template(
+            'ablation.html',
+            title='Ablation Studies',
+            error=str(e)
+        )

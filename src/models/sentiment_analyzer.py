@@ -3,8 +3,6 @@ Sentiment Analyzer Module for SentiTrade-HMA-V2
 Uses Llama-2-7B fine-tuned with QLoRA for financial sentiment analysis
 
 Performance: 99% accuracy on test set (100 examples)
-Author: Mohamed NAJID
-Date: December 2025
 """
 
 import torch

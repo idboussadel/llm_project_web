@@ -93,6 +93,12 @@
               >
                 Signals
               </a>
+              <a
+                href="{{ url_for('views.ablation') }}"
+                class="{% if request.endpoint == 'views.ablation' %}border-primary text-primary{% else %}border-transparent text-muted-foreground hover:text-foreground{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+              >
+                Ablation Studies
+              </a>
             </div>
           </div>
         </div>

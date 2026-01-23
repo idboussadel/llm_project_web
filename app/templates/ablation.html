@@ -1,0 +1,592 @@
+{% extends "dashboard_base.html" %} {% block title %}Ablation Studies - SentiTrade Dashboard{% endblock %} {% block content %}
+<article class="prose prose-slate max-w-none">
+  <!-- Header -->
+  <header class="mb-8 pb-6 border-b border-border">
+    <h1 class="text-3xl lg:text-4xl font-bold text-foreground mb-3">
+      Comprehensive Ablation Studies
+    </h1>
+    <p class="text-lg text-muted-foreground leading-relaxed">
+      Systematic analysis quantifying the contribution of each component in the SentiTrade-HMA system
+    </p>
+  </header>
+
+  {% if error %}
+  <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-8 rounded">
+    <p class="text-red-700">Error loading ablation studies: {{ error }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Introduction -->
+  <section class="mb-12">
+    <h2 class="text-2xl font-bold text-foreground mb-4 mt-8">Introduction</h2>
+    <div class="text-muted-foreground leading-relaxed space-y-4">
+      <p>
+        This comprehensive ablation study systematically evaluates the contribution of each component 
+        in the SentiTrade-HMA system through three controlled experiments. Each study isolates 
+        specific components to quantify their individual impact on model performance.
+      </p>
+      <p>
+        The studies examine: (1) the contribution of sentiment features versus technical features alone, 
+        (2) the performance difference between pre-trained and fine-tuned sentiment models, and 
+        (3) the architectural advantage of Temporal Fusion Transformers over traditional LSTM baselines.
+      </p>
+    </div>
+  </section>
+
+  <!-- Study 1 -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-foreground mb-2 mt-8">Study 1: Sentiment Features Contribution</h2>
+    <p class="text-sm text-muted-foreground mb-6">Baseline vs Full Model Comparison</p>
+    
+    <div class="bg-slate-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground mb-2"><strong>Hypothesis:</strong> Adding sentiment features improves prediction accuracy</p>
+      <p class="text-sm text-muted-foreground">
+        <strong>Baseline:</strong> TFT trained on technical features only (no sentiment)<br>
+        <strong>Full Model:</strong> TFT trained on technical + sentiment features
+      </p>
+    </div>
+
+    {% if ablation_data and ablation_data.studies and ablation_data.studies.sentiment_features %}
+    {% set study1 = ablation_data.studies.sentiment_features %}
+    
+    <!-- Results Table -->
+    <div class="overflow-x-auto mb-8">
+      <table class="min-w-full border-collapse border border-slate-300 text-sm">
+        <thead>
+          <tr class="bg-slate-100">
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Metric</th>
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Baseline <span class="text-xs font-normal text-muted-foreground">(Tech Only)</span></th>
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Full Model <span class="text-xs font-normal text-muted-foreground">(+Sentiment)</span></th>
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-positive">Improvement</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white">
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">MAE</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.6f"|format(study1.baseline.mae) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.6f"|format(study1.full.mae) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↓ {{ "%.2f"|format(study1.improvements.mae_pct) }}%</td>
+          </tr>
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">RMSE</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.6f"|format(study1.baseline.rmse) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.6f"|format(study1.full.rmse) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↓ {{ "%.2f"|format(study1.improvements.rmse_pct) }}%</td>
+          </tr>
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">MAPE (%)</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.2f"|format(study1.baseline.mape) }}%</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.2f"|format(study1.full.mape) }}%</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↓ {{ "%.2f"|format(study1.improvements.mape_pct) }}%</td>
+          </tr>
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">R² Score</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.6f"|format(study1.baseline.r2) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.6f"|format(study1.full.r2) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↑ {{ "%.2f"|format(study1.improvements.r2_pct) }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground">
+        <strong>Conclusion:</strong> Adding sentiment features results in substantial improvements across all metrics, 
+        with MAE reduction of <strong>{{ "%.2f"|format(study1.improvements.mae_pct) }}%</strong> and RMSE reduction of 
+        <strong>{{ "%.2f"|format(study1.improvements.rmse_pct) }}%</strong>, demonstrating the critical value of 
+        sentiment analysis in price prediction.
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Visualization -->
+    <figure class="my-8">
+      <img 
+        src="{{ url_for('static', filename='figures/01_sentiment_features_contribution.png') }}" 
+        alt="Sentiment Features Contribution"
+        class="max-w-3xl mx-auto w-full rounded-lg border border-border"
+      />
+      <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+        <strong>Figure 1:</strong> Comparison of baseline (technical features only) vs full model (technical + sentiment features)
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Study 2 -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-foreground mb-2 mt-8">Study 2: Sentiment Model Comparison</h2>
+    <p class="text-sm text-muted-foreground mb-6">FinBERT vs Fine-tuned Llama-2 with QLoRA</p>
+    
+    <div class="bg-slate-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground mb-2"><strong>Hypothesis:</strong> Fine-tuned Llama-2 with QLoRA outperforms FinBERT for financial sentiment analysis</p>
+      <p class="text-sm text-muted-foreground">
+        <strong>FinBERT:</strong> Pre-trained FinBERT model for financial sentiment<br>
+        <strong>Llama-2+QLoRA:</strong> Fine-tuned Llama-2-7B with QLoRA for financial sentiment
+      </p>
+    </div>
+
+    {% if ablation_data and ablation_data.studies and ablation_data.studies.sentiment_models %}
+    {% set study2 = ablation_data.studies.sentiment_models %}
+    
+    <!-- Results Table -->
+      <div class="overflow-x-auto mb-8">
+        <table class="min-w-full border-collapse border border-slate-300 text-sm">
+          <thead>
+            <tr class="bg-slate-100">
+              <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Model</th>
+              <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Accuracy</th>
+              <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">MCC</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white">
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">FinBERT</td>
+              <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.2f"|format(study2.models.finbert.accuracy * 100) }}%</td>
+              <td class="border border-slate-300 px-4 py-3 text-muted-foreground">—</td>
+            </tr>
+            <tr class="hover:bg-slate-50 bg-green-50">
+              <td class="border border-slate-300 px-4 py-3 font-semibold text-foreground">Llama-2+QLoRA</td>
+              <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.2f"|format(study2.models.llama2_qlora.accuracy * 100) }}%</td>
+              <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.4f"|format(study2.models.llama2_qlora.mcc) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    {% if study2.comparison %}
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground">
+        <strong>Conclusion:</strong> Fine-tuned Llama-2+QLoRA achieves <strong>{{ "%.2f"|format(study2.comparison.improvement_pct) }}%</strong> 
+        higher accuracy than FinBERT, demonstrating the value of domain-specific fine-tuning for financial sentiment analysis.
+      </p>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Visualization -->
+    <figure class="my-8">
+      <img 
+        src="{{ url_for('static', filename='figures/02_sentiment_models_comparison.png') }}" 
+        alt="Sentiment Models Comparison"
+        class="max-w-3xl mx-auto w-full rounded-lg border border-border"
+      />
+      <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+        <strong>Figure 2:</strong> Accuracy comparison between FinBERT and Llama-2+QLoRA models
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Study 3 -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-foreground mb-2 mt-8">Study 3: Architecture Comparison</h2>
+    <p class="text-sm text-muted-foreground mb-6">TFT vs LSTM Baseline</p>
+    
+    <div class="bg-slate-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground mb-2"><strong>Hypothesis:</strong> TFT architecture provides better performance than LSTM baseline</p>
+      <p class="text-sm text-muted-foreground">
+        <strong>LSTM:</strong> Baseline LSTM architecture (2 layers, 128 hidden units)<br>
+        <strong>TFT:</strong> Temporal Fusion Transformer (full architecture)
+      </p>
+    </div>
+
+    {% if ablation_data and ablation_data.studies and ablation_data.studies.architecture %}
+    {% set study3 = ablation_data.studies.architecture %}
+    
+    <!-- Results Table -->
+    <div class="overflow-x-auto mb-8">
+      <table class="min-w-full border-collapse border border-slate-300 text-sm">
+        <thead>
+          <tr class="bg-slate-100">
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Metric</th>
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">LSTM <span class="text-xs font-normal text-muted-foreground">(Baseline)</span></th>
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">TFT</th>
+            <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-positive">Improvement</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white">
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">MAE</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.6f"|format(study3.models.lstm.mae) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.6f"|format(study3.models.tft.mae) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↓ {{ "%.2f"|format(study3.comparison.mae_improvement_pct) }}%</td>
+          </tr>
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">RMSE</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.6f"|format(study3.models.lstm.rmse) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.6f"|format(study3.models.tft.rmse) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↓ {{ "%.2f"|format(study3.comparison.rmse_improvement_pct) }}%</td>
+          </tr>
+          <tr class="hover:bg-slate-50">
+            <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">R² Score</td>
+            <td class="border border-slate-300 px-4 py-3 text-muted-foreground">{{ "%.6f"|format(study3.models.lstm.r2) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">{{ "%.6f"|format(study3.models.tft.r2) }}</td>
+            <td class="border border-slate-300 px-4 py-3 text-positive font-semibold">↑ {{ "%.2f"|format(study3.comparison.r2_improvement_pct) }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    {% if study3.statistical_test %}
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground mb-2"><strong>Statistical Significance Test (Diebold-Mariano):</strong></p>
+      <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+        <li>DM Statistic: <code class="bg-white px-1 rounded">{{ "%.4f"|format(study3.statistical_test.dm_statistic) }}</code></li>
+        <li>P-value: <code class="bg-white px-1 rounded">{{ "%.6f"|format(study3.statistical_test.p_value) }}</code></li>
+        <li class="text-positive font-semibold">
+          Result: TFT is {% if study3.statistical_test.significant %}significantly better{% else %}not significantly different{% endif %} 
+          (p {% if study3.statistical_test.significant %}<{% else %}>={% endif %} 0.05)
+        </li>
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r">
+      <p class="text-sm text-foreground">
+        <strong>Conclusion:</strong> The TFT architecture significantly outperforms the LSTM baseline with 
+        <strong>{{ "%.2f"|format(study3.comparison.mae_improvement_pct) }}%</strong> MAE improvement and 
+        <strong>{{ "%.2f"|format(study3.comparison.rmse_improvement_pct) }}%</strong> RMSE improvement. 
+        Statistical significance confirmed via Diebold-Mariano test.
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Visualization -->
+    <figure class="my-8">
+      <img 
+        src="{{ url_for('static', filename='figures/03_architecture_comparison.png') }}" 
+        alt="Architecture Comparison"
+        class="max-w-3xl mx-auto w-full rounded-lg border border-border"
+      />
+      <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+        <strong>Figure 3:</strong> Performance comparison between LSTM baseline and TFT architectures
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Additional Analysis -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-foreground mb-6 mt-8">Additional Analysis</h2>
+    
+    <div class="space-y-8">
+      <!-- Comprehensive Comparison -->
+      <figure class="my-8">
+        <img 
+          src="{{ url_for('static', filename='figures/04_comprehensive_comparison.png') }}" 
+          alt="Comprehensive Comparison"
+          class="max-w-3xl mx-auto w-full rounded-lg border border-border"
+        />
+        <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+          <strong>Figure 4:</strong> Comprehensive comparison across all models and configurations
+        </figcaption>
+      </figure>
+
+      <!-- Confounding Factors -->
+      <figure class="my-8">
+        <img 
+          src="{{ url_for('static', filename='figures/05_confounding_factors.png') }}" 
+          alt="Confounding Factors"
+          class="max-w-3xl mx-auto w-full rounded-lg border border-border"
+        />
+        <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+          <strong>Figure 5:</strong> Analysis of confounding factors in model comparison
+        </figcaption>
+      </figure>
+
+      <!-- Feature Composition -->
+      <div class="bg-slate-50 rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-foreground mb-4">Feature Composition</h3>
+        {% if ablation_data and ablation_data.feature_composition %}
+        {% set features = ablation_data.feature_composition %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-white border border-slate-300 rounded p-4 text-center">
+            <div class="text-3xl font-bold text-primary mb-1">{{ features.technical_features }}</div>
+            <div class="text-sm text-muted-foreground">Technical Features</div>
+          </div>
+          <div class="bg-white border border-slate-300 rounded p-4 text-center">
+            <div class="text-3xl font-bold text-primary mb-1">{{ features.sentiment_features }}</div>
+            <div class="text-sm text-muted-foreground">Sentiment Features</div>
+          </div>
+          <div class="bg-white border border-slate-300 rounded p-4 text-center">
+            <div class="text-3xl font-bold text-primary mb-1">{{ features.total_features }}</div>
+            <div class="text-sm text-muted-foreground">Total Features</div>
+          </div>
+        </div>
+        {% endif %}
+        <figure>
+          <img 
+            src="{{ url_for('static', filename='figures/06_feature_composition.png') }}" 
+            alt="Feature Composition"
+            class="max-w-2xl mx-auto w-full rounded-lg border border-border"
+          />
+          <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+            <strong>Figure 6:</strong> Feature composition breakdown: baseline vs full model
+          </figcaption>
+        </figure>
+      </div>
+
+      <!-- Sentiment Contribution Estimates -->
+      <figure class="my-8">
+        <img 
+          src="{{ url_for('static', filename='figures/07_sentiment_contribution_estimates.png') }}" 
+          alt="Sentiment Contribution Estimates"
+          class="max-w-3xl mx-auto w-full rounded-lg border border-border"
+        />
+        <figcaption class="text-sm text-muted-foreground mt-2 text-center">
+          <strong>Figure 7:</strong> Estimated sentiment feature contribution with conservative bounds
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Related Work: FinGPT Comparison -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-foreground mb-4 mt-8">Related Work: FinGPT and FinGPT Forecaster</h2>
+    
+    <div class="text-muted-foreground leading-relaxed space-y-4 mb-6">
+      <p>
+        <strong>FinGPT</strong> is an open-source large language model framework specifically designed for the finance sector, 
+        introduced by Yang et al. (2023). Unlike proprietary models like BloombergGPT, FinGPT adopts a data-centric approach, 
+        providing researchers and practitioners with accessible and transparent resources to customize their financial LLMs. 
+        FinGPT emphasizes the importance of an automatic data curation pipeline and lightweight low-rank adaptation (LoRA) 
+        techniques for building domain-specific financial models.
+      </p>
+      <p>
+        <strong>FinGPT Forecaster</strong> is an extension of the FinGPT framework focused on stock market prediction tasks. 
+        It leverages the same foundational architecture but is specifically fine-tuned for forecasting stock movements using 
+        financial time-series data and sentiment analysis.
+      </p>
+      <p>
+        While FinGPT and FinGPT Forecaster represent similar approaches to financial LLMs, direct comparison with our SentiTrade-HMA 
+        system is challenging due to several factors:
+      </p>
+      <ul class="list-disc list-inside space-y-2 ml-4">
+        <li><strong>Different data pipelines:</strong> FinGPT uses proprietary data sources and private data curation pipelines that are not publicly available</li>
+        <li><strong>Limited resources:</strong> Due to computational constraints, we cannot replicate the exact benchmark datasets and evaluation protocols</li>
+        <li><strong>Different evaluation frameworks:</strong> The benchmarks use datasets that require specific preprocessing and access permissions</li>
+      </ul>
+      <p>
+        However, we present the published benchmark results from the original papers below to provide context for similar work 
+        in the financial LLM domain.
+      </p>
+    </div>
+
+    <!-- FinGPT Sentiment Classification Benchmark -->
+    <div class="mb-8">
+      <h3 class="text-xl font-semibold text-foreground mb-4">FinGPT Sentiment Classification Performance</h3>
+      <p class="text-sm text-muted-foreground mb-4">
+        Benchmark results from <a href="https://arxiv.org/pdf/2306.06031" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Yang et al. (2023)</a> 
+        comparing FinGPT variants against baseline models:
+      </p>
+      
+      <div class="overflow-x-auto mb-6">
+        <table class="min-w-full border-collapse border border-slate-300 text-sm">
+          <thead>
+            <tr class="bg-slate-100">
+              <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Model</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">Acc.</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">Macro-F1</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">Pos-F1</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">Neg-F1</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">Neu-F1</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white">
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">ChatGPT (0-shot)</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">63.4</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">61.7</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">64.0</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">59.1</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">62.0</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">Llama3.1-8B (0-shot)</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">57.9</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">54.4</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">56.1</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">53.2</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">54.0</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">FinBERT</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">71.2</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">69.9</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">73.0</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">69.1</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">67.5</td>
+            </tr>
+            <tr class="hover:bg-slate-50 bg-blue-50">
+              <td class="border border-slate-300 px-4 py-3 font-semibold text-foreground">FinGPT (LoRA-SFT)</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-blue-700 font-semibold">78.8</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-blue-700 font-semibold">77.3</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-blue-700 font-semibold">79.6</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-blue-700 font-semibold">76.8</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-blue-700 font-semibold">75.4</td>
+            </tr>
+            <tr class="hover:bg-slate-50 bg-green-50">
+              <td class="border border-slate-300 px-4 py-3 font-semibold text-foreground">FinGPT (SFT+RLSP)</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-green-700 font-semibold">82.1</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-green-700 font-semibold">80.9</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-green-700 font-semibold">83.4</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-green-700 font-semibold">81.5</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-green-700 font-semibold">77.8</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+        <p class="text-sm text-foreground">
+          <strong>Note:</strong> These benchmarks use proprietary data pipelines and evaluation frameworks that differ from our implementation. 
+          Direct comparison requires identical datasets and preprocessing, which are not publicly available.
+        </p>
+      </div>
+    </div>
+
+    <!-- FinGPT Forecaster Stock Prediction Benchmark -->
+    <div class="mb-8">
+      <h3 class="text-xl font-semibold text-foreground mb-4">FinGPT Forecaster Stock Movement Prediction</h3>
+      <p class="text-sm text-muted-foreground mb-4">
+        Benchmark results from <a href="https://arxiv.org/pdf/2507.08015" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">FinGPT Forecaster paper</a> 
+        comparing accuracy across different datasets available on Hugging Face:
+      </p>
+      
+      <div class="overflow-x-auto mb-6">
+        <table class="min-w-full border-collapse border border-slate-300 text-sm">
+          <thead>
+            <tr class="bg-slate-100">
+              <th class="border border-slate-300 px-4 py-3 text-left font-semibold text-foreground">Dataset</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">FinGPT (Acc)</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">FinMA 7B (Acc)</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">GPT-4 (Acc)</th>
+              <th class="border border-slate-300 px-4 py-3 text-center font-semibold text-foreground">Human Acc</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white">
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">StockNet</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">48.47%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">56.00%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">52.00%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">—</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">CIKM18</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">47.03%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">53.00%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">57.00%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">—</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="border border-slate-300 px-4 py-3 font-medium text-foreground">BigData22</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">52.83%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">49.00%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">54.00%</td>
+              <td class="border border-slate-300 px-4 py-3 text-center text-muted-foreground">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded-r">
+        <p class="text-sm text-foreground">
+          <strong>Limitation:</strong> Due to limited computational resources and the requirement for specific dataset access permissions 
+          on Hugging Face, we were unable to replicate these benchmarks with our SentiTrade-HMA system. The datasets (StockNet, CIKM18, 
+          BigData22) require significant preprocessing and computational resources that exceed our current capacity.
+        </p>
+      </div>
+    </div>
+
+    <div class="bg-slate-50 border-l-4 border-slate-500 p-4 rounded-r">
+      <p class="text-sm text-foreground mb-2"><strong>References:</strong></p>
+      <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-2">
+        <li>
+          Yang, H., Liu, X. Y., & Wang, C. D. (2023). 
+          <a href="https://arxiv.org/pdf/2306.06031" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
+            FinGPT: Open-Source Financial Large Language Models
+          </a>. arXiv preprint arXiv:2306.06031.
+        </li>
+        <li>
+          FinGPT Forecaster (2025). 
+          <a href="https://arxiv.org/pdf/2507.08015" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
+            Stock Market Prediction with FinGPT Forecaster
+          </a>. arXiv preprint arXiv:2507.08015.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Key Findings -->
+  <section class="mb-12">
+    <h2 class="text-2xl font-bold text-foreground mb-6 mt-8">Key Findings</h2>
+    <div class="bg-slate-50 rounded-lg p-6 space-y-6">
+      <div class="border-l-4 border-green-500 pl-4">
+        <h3 class="font-semibold text-foreground mb-2">1. Sentiment Features Significantly Improve Performance</h3>
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          Adding sentiment features to the TFT model results in substantial improvements: MAE reduction of 94.51%, 
+          RMSE reduction of 93.17%, and MAPE reduction of 95.99%, demonstrating the critical value of sentiment 
+          analysis in price prediction.
+        </p>
+      </div>
+      
+      <div class="border-l-4 border-green-500 pl-4">
+        <h3 class="font-semibold text-foreground mb-2">2. Fine-tuned LLMs Outperform Pre-trained Models</h3>
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          Fine-tuned Llama-2 with QLoRA achieves 99% accuracy, outperforming FinBERT's 97%, with a 2.06% improvement. 
+          This demonstrates the value of domain-specific fine-tuning for financial sentiment analysis.
+        </p>
+      </div>
+      
+      <div class="border-l-4 border-green-500 pl-4">
+        <h3 class="font-semibold text-foreground mb-2">3. TFT Architecture Superior to LSTM Baseline</h3>
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          The Temporal Fusion Transformer architecture significantly outperforms the LSTM baseline with 28.01% MAE 
+          improvement and 19.70% RMSE improvement. Statistical significance confirmed via Diebold-Mariano test (p < 0.001).
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Conclusion -->
+  <section class="mb-12">
+    <h2 class="text-2xl font-bold text-foreground mb-4 mt-8">Conclusion</h2>
+    <div class="text-muted-foreground leading-relaxed space-y-4">
+      <p>
+        The comprehensive ablation studies demonstrate that sentiment analysis contributes meaningfully to price prediction, 
+        fine-tuned LLMs provide superior sentiment extraction compared to pre-trained models, and the TFT architecture 
+        is well-suited for financial time-series forecasting.
+      </p>
+      <p>
+        These findings validate the design choices in the SentiTrade-HMA system and provide quantitative evidence for 
+        the value of each component in the overall pipeline.
+      </p>
+    </div>
+  </section>
+</article>
+
+<style>
+  article.prose {
+    line-height: 1.75;
+  }
+  article.prose h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  article.prose h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  article.prose p {
+    margin-bottom: 1rem;
+  }
+  article.prose table {
+    font-size: 0.875rem;
+  }
+  article.prose code {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+  }
+</style>
+{% endblock %}

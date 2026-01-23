@@ -38,6 +38,7 @@ class Config:
     FINAL_RESULTS_JSON = PROJECT_ROOT / "final_results_summary.json"
     QLORA_RESULTS_JSON = RESULTS_PATH / "qlora_5fold_final_results.json"
     TEST_METRICS_JSON = PROJECT_ROOT / "models" / "test_metrics.json"
+    ABLATION_STUDIES_JSON = RESULTS_PATH / "ablation_studies_summary.json"
     
     # Model Configuration
     USE_GPU = torch.cuda.is_available() if 'torch' in dir() else False
