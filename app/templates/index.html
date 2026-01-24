@@ -2,93 +2,166 @@
 <!-- Page Title -->
 <div class="mb-6 lg:mb-8">
   <h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
-    SentiTrade
+    SentiTrade-HMA
   </h1>
   <p class="text-sm text-muted-foreground mt-1.5">
-    Hierarchical Multi-Source Sentiment Analysis
+    A Synergistic Framework for Algorithmic Trading via Fusion of Large Language Models and Temporal Fusion Transformers
   </p>
 </div>
 
-<!-- Hero Section -->
-<div class="bg-card border border-border rounded-lg shadow-sm p-8 lg:p-12 mb-6 lg:mb-8">
-  <div class="text-center max-w-3xl mx-auto">
-    <p class="text-base lg:text-lg text-muted-foreground leading-relaxed">
-      Advanced financial sentiment analysis combining news, social media, and
-      earnings data to generate actionable trading signals using
-      state-of-the-art NLP models.
-    </p>
-    <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-      <a
-        href="{{ url_for('views.analyze') }}"
-        class="inline-flex items-center justify-center h-10 px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        Try Demo
-        <i data-lucide="arrow-right" class="ml-2 h-4 w-4"></i>
-      </a>
-      <a
-        href="{{ url_for('views.signals') }}"
-        class="inline-flex items-center justify-center h-10 px-6 py-2 border border-input bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        Generate Signals
-      </a>
-    </div>
-  </div>
-</div>
-
-<!-- Features Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-  <!-- Feature 1 -->
-  <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-        <i data-lucide="search" class="h-5 w-5 text-primary"></i>
-      </div>
-      <h3 class="text-base font-semibold text-foreground">Sentiment Analysis</h3>
-    </div>
-    <p class="text-sm text-muted-foreground leading-relaxed">
-      Analyze financial text using our domain-specialized sentiment model
-      trained on financial data.
-    </p>
-  </div>
-
-  <!-- Feature 2 -->
-  <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-        <i data-lucide="activity" class="h-5 w-5 text-primary"></i>
-      </div>
-      <h3 class="text-base font-semibold text-foreground">Trading Signals</h3>
-    </div>
-    <p class="text-sm text-muted-foreground leading-relaxed">
-      Generate actionable trading signals from multi-source sentiment analysis
-      combined with TFT price predictions.
-    </p>
-  </div>
-
-  <!-- Feature 3 -->
-  <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
-    <div class="flex items-center gap-3 mb-3">
-      <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-        <i data-lucide="bar-chart-3" class="h-5 w-5 text-primary"></i>
-      </div>
-      <h3 class="text-base font-semibold text-foreground">Multi-Source</h3>
-    </div>
-    <p class="text-sm text-muted-foreground leading-relaxed">
-      Combine sentiment from news articles, social media, and earnings
-      transcripts for comprehensive analysis.
-    </p>
-  </div>
-</div>
-
-<!-- Abstract Section -->
-<div class="mt-6 lg:mt-8 bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
-  <h2 class="text-lg font-semibold text-foreground mb-4">About</h2>
+<!-- Introduction Section -->
+<div class="bg-card border border-border rounded-lg shadow-sm p-6 lg:p-8 mb-6 lg:mb-8">
+  <h2 class="text-xl lg:text-2xl font-semibold text-foreground mb-4">Overview</h2>
   <div class="prose prose-sm max-w-none">
-    <p class="text-sm text-muted-foreground leading-relaxed">
-      SentiTrade is a comprehensive financial sentiment analysis platform that
-      leverages hierarchical multi-source data aggregation and state-of-the-art
-      machine learning models to provide actionable trading insights.
+    <p class="text-sm lg:text-base text-muted-foreground leading-relaxed mb-4">
+      SentiTrade-HMA is a production-ready algorithmic trading system that combines <strong class="text-foreground">context-aware sentiment analysis</strong> from fine-tuned Llama-2-7B with <strong class="text-foreground">Temporal Fusion Transformers</strong> for multi-horizon stock price forecasting. The system achieves a <strong class="text-foreground">Sharpe Ratio of 5.17</strong> and <strong class="text-foreground">5% MAE reduction</strong> over price-only baselines.
     </p>
+    <p class="text-sm lg:text-base text-muted-foreground leading-relaxed">
+      Our platform leverages hierarchical multi-source data aggregation (news articles, social media, and earnings transcripts) to extract financial sentiment, which is then integrated with technical indicators and price data to generate actionable trading signals with confidence intervals and risk metrics.
+    </p>
+  </div>
+  <div class="mt-6 flex flex-col sm:flex-row justify-center gap-4">
+    <a
+      href="{{ url_for('views.analyze') }}"
+      class="inline-flex items-center justify-center h-10 px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      Try Demo
+      <i data-lucide="arrow-right" class="ml-2 h-4 w-4"></i>
+    </a>
+    <a
+      href="{{ url_for('views.signals') }}"
+      class="inline-flex items-center justify-center h-10 px-6 py-2 border border-input bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      Generate Signals
+    </a>
+  </div>
+</div>
+
+<!-- Architecture Section -->
+<div class="bg-card border border-border rounded-lg shadow-sm p-6 lg:p-8 mb-6 lg:mb-8">
+  <h2 class="text-xl lg:text-2xl font-semibold text-foreground mb-4">System Architecture</h2>
+  <div class="mb-4">
+    <p class="text-sm text-muted-foreground mb-4">
+      The following diagram illustrates the complete pipeline: Multi-Source Data → LLM Sentiment Analysis → TFT Forecasting → Trading Signals
+    </p>
+    <div class="rounded-lg overflow-hidden border border-border">
+      <img 
+        src="{{ url_for('static', filename='images/image.png') }}" 
+        alt="SentiTrade-HMA Architecture" 
+        class="w-full h-auto"
+      />
+    </div>
+  </div>
+</div>
+
+<!-- Key Features Grid -->
+<div class="mb-6 lg:mb-8">
+  <h2 class="text-xl lg:text-2xl font-semibold text-foreground mb-4">Key Features</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+    <!-- Feature 1 -->
+    <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+          <i data-lucide="brain" class="h-5 w-5 text-primary"></i>
+        </div>
+        <h3 class="text-base font-semibold text-foreground">LLM-Powered Sentiment</h3>
+      </div>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        QLoRA fine-tuned Llama-2-7B model specialized for financial news analysis, providing context-aware sentiment extraction from unstructured text.
+      </p>
+    </div>
+
+    <!-- Feature 2 -->
+    <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+          <i data-lucide="trending-up" class="h-5 w-5 text-primary"></i>
+        </div>
+        <h3 class="text-base font-semibold text-foreground">Multi-Horizon Forecasting</h3>
+      </div>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        Temporal Fusion Transformer with quantile predictions for robust multi-step ahead price forecasting with uncertainty quantification.
+      </p>
+    </div>
+
+    <!-- Feature 3 -->
+    <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+          <i data-lucide="eye" class="h-5 w-5 text-primary"></i>
+        </div>
+        <h3 class="text-base font-semibold text-foreground">Model Interpretability</h3>
+      </div>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        White-box analysis through attention weights and feature importance visualization, enabling understanding of model decisions.
+      </p>
+    </div>
+
+    <!-- Feature 4 -->
+    <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+          <i data-lucide="zap" class="h-5 w-5 text-primary"></i>
+        </div>
+        <h3 class="text-base font-semibold text-foreground">Production-Ready</h3>
+      </div>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        Optimized API with intelligent caching, async processing, and parallel data fetching for real-time performance.
+      </p>
+    </div>
+
+    <!-- Feature 5 -->
+    <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+          <i data-lucide="activity" class="h-5 w-5 text-primary"></i>
+        </div>
+        <h3 class="text-base font-semibold text-foreground">Real-Time Signals</h3>
+      </div>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        Generate actionable trading signals with confidence intervals, risk metrics, and interpretability insights for informed decision-making.
+      </p>
+    </div>
+
+    <!-- Feature 6 -->
+    <div class="bg-card border border-border rounded-lg shadow-sm p-5 lg:p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+          <i data-lucide="layers" class="h-5 w-5 text-primary"></i>
+        </div>
+        <h3 class="text-base font-semibold text-foreground">Multi-Source Aggregation</h3>
+      </div>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        Hierarchical aggregation combining sentiment from news articles, social media, and earnings transcripts with learned source weights.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Technical Details Section -->
+<div class="bg-card border border-border rounded-lg shadow-sm p-6 lg:p-8">
+  <h2 class="text-xl lg:text-2xl font-semibold text-foreground mb-4">How It Works</h2>
+  <div class="prose prose-sm max-w-none">
+    <div class="space-y-4 text-sm lg:text-base text-muted-foreground leading-relaxed">
+      <p>
+        <strong class="text-foreground">1. Data Collection:</strong> The system aggregates financial data from multiple sources including NewsAPI, Finnhub (social media/news), and Financial Modeling Prep (earnings data). Historical price data is fetched via yfinance.
+      </p>
+      <p>
+        <strong class="text-foreground">2. Sentiment Analysis:</strong> Raw text from each source is processed through our fine-tuned Llama-2-7B model using QLoRA, extracting sentiment scores and confidence levels. The model is specifically trained on financial domain data for superior performance.
+      </p>
+      <p>
+        <strong class="text-foreground">3. Hierarchical Aggregation:</strong> Sentiment scores from different sources are aggregated using learned weights, accounting for source reliability and temporal relevance. This creates a unified sentiment signal.
+      </p>
+      <p>
+        <strong class="text-foreground">4. Feature Engineering:</strong> Technical indicators (Hull Moving Average, ATR, RSI, etc.) are calculated and combined with sentiment features and price lags to create a rich feature set for forecasting.
+      </p>
+      <p>
+        <strong class="text-foreground">5. TFT Prediction:</strong> The Temporal Fusion Transformer model processes the engineered features to generate multi-horizon price predictions with quantile outputs, providing both point forecasts and uncertainty estimates.
+      </p>
+      <p>
+        <strong class="text-foreground">6. Signal Generation:</strong> Predictions are combined with interpretability insights (attention weights, feature importance) to generate actionable trading signals with risk metrics and confidence intervals.
+      </p>
+    </div>
   </div>
 </div>
 {% endblock %}
