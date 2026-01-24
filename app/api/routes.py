@@ -314,3 +314,70 @@ def generate_trading_signals():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@api_bp.route('/interpretability/empirical', methods=['POST'])
+def compute_empirical_validation():
+    """
+    Compute empirical feature importance across test period
+    
+    Request Body:
+        {
+            "test_tickers": ["AAPL", "MSFT", "GOOGL"],
+            "test_dates": ["2024-09-01", "2024-09-02", ...]
+        }
+    
+    Response:
+        {
+            "success": true,
+            "result": {
+                "aggregated_ranking": [...],
+                "sentiment_rank": 1,
+                "validation_passed": true,
+                "num_predictions": 150,
+                ...
+            }
+        }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing request body'
+            }), 400
+        
+        test_tickers = data.get('test_tickers', [])
+        test_dates = data.get('test_dates', [])
+        
+        if not test_tickers or not isinstance(test_tickers, list):
+            return jsonify({
+                'success': False,
+                'error': 'Missing or invalid "test_tickers" field. Must be a list of ticker symbols.'
+            }), 400
+        
+        if not test_dates or not isinstance(test_dates, list):
+            return jsonify({
+                'success': False,
+                'error': 'Missing or invalid "test_dates" field. Must be a list of dates (YYYY-MM-DD format).'
+            }), 400
+        
+        # Compute empirical feature importance
+        result = trading_signal_service.compute_empirical_feature_importance(
+            test_tickers=test_tickers,
+            test_dates=test_dates,
+            sentiment_service=sentiment_service
+        )
+        
+        return jsonify({
+            'success': True,
+            'result': result
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in compute_empirical_validation: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

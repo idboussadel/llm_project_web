@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}{{ title }} - SentiTrade{% endblock %}</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32" href="{{ url_for('static', filename='images/favicon.ico') }}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/logo.png') }}" />
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/logo.png') }}" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/logo.png') }}" />
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -16,6 +27,9 @@
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+            },
             colors: {
               border: "hsl(214.3 31.8% 91.4%)",
               input: "hsl(214.3 31.8% 91.4%)",
@@ -60,7 +74,7 @@
 
     {% block extra_head %}{% endblock %}
   </head>
-  <body class="bg-background text-foreground antialiased">
+  <body class="bg-background text-foreground antialiased font-sans">
     <!-- Navigation -->
     <nav class="border-b border-border bg-white sticky top-0 z-50 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

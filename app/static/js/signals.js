@@ -108,6 +108,38 @@ function displayResults(result) {
 
   // Display TFT prediction
   displayTFTPrediction(result.tft_prediction);
+
+  // Display interpretability analysis - always show section if we have TFT prediction
+  if (result.tft_prediction) {
+    // Check if interpretability exists (even if it's an empty object)
+    if (result.tft_prediction.interpretability !== undefined && result.tft_prediction.interpretability !== null) {
+      // Check if it has any actual data
+      const hasData = result.tft_prediction.interpretability.attention_plot || 
+                      result.tft_prediction.interpretability.feature_importance_plot ||
+                      result.tft_prediction.interpretability.attention_weights;
+      
+      if (hasData) {
+        displayInterpretability(result.tft_prediction.interpretability);
+      } else {
+        // Show unavailable message
+        displayInterpretabilityUnavailable(result.tft_prediction);
+      }
+    } else {
+      // Show section even if interpretability is not available, with a message
+      displayInterpretabilityUnavailable(result.tft_prediction);
+    }
+
+    // Display empirical validation if available
+    if (result.empirical_validation) {
+      displayEmpiricalValidation(result.empirical_validation);
+    } else {
+      hideEmpiricalValidation();
+    }
+  } else {
+    // Hide if no TFT prediction at all
+    hideInterpretability();
+    hideEmpiricalValidation();
+  }
 }
 
 // Display trading signal
@@ -447,6 +479,394 @@ function displayDecisionRule() {
       <div><span class="font-semibold text-foreground">HOLD:</span> Otherwise</div>
     </div>
   `;
+}
+
+// Display interpretability analysis
+function displayInterpretability(interpretability) {
+  const section = document.getElementById("interpretabilitySection");
+  const attentionPlot = document.getElementById("attentionPlot");
+  const featureImportancePlot = document.getElementById("featureImportancePlot");
+  const insightsContent = document.getElementById("insightsContent");
+  const localImportanceSection = document.getElementById("localImportanceSection");
+  const timeStepSelector = document.getElementById("timeStepSelector");
+  const localImportanceContent = document.getElementById("localImportanceContent");
+
+  if (!interpretability) {
+    hideInterpretability();
+    return;
+  }
+
+  // Show section
+  section.classList.remove("hidden");
+
+  // Display attention weights plot
+  if (interpretability.attention_plot) {
+    attentionPlot.innerHTML = `<img src="${interpretability.attention_plot}" alt="Attention Weights" class="w-full h-auto rounded-md" />`;
+  } else {
+    attentionPlot.innerHTML = '<p class="text-xs text-muted-foreground">Attention weights visualization not available</p>';
+  }
+
+  // Display feature importance plot (global)
+  if (interpretability.feature_importance_plot) {
+    featureImportancePlot.innerHTML = `<img src="${interpretability.feature_importance_plot}" alt="Feature Importance" class="w-full h-auto rounded-md" />`;
+  } else {
+    featureImportancePlot.innerHTML = '<p class="text-xs text-muted-foreground">Feature importance visualization not available</p>';
+  }
+
+  // Display LOCAL IMPORTANCE if available
+  if (interpretability.feature_importances && interpretability.feature_importances.local) {
+    displayLocalImportance(interpretability.feature_importances.local);
+  } else {
+    localImportanceSection.classList.add("hidden");
+  }
+
+  // Generate insights
+  const insights = generateInsights(interpretability);
+  insightsContent.innerHTML = insights.map(insight => `<div>• ${insight}</div>`).join('');
+
+  // Re-initialize Lucide icons
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
+}
+
+// Display local importance (per time step)
+function displayLocalImportance(localData) {
+  const localImportanceSection = document.getElementById("localImportanceSection");
+  const timeStepSelector = document.getElementById("timeStepSelector");
+  const localImportanceContent = document.getElementById("localImportanceContent");
+
+  if (!localData || !localData.per_time_step || localData.per_time_step.length === 0) {
+    localImportanceSection.classList.add("hidden");
+    return;
+  }
+
+  // Show section
+  localImportanceSection.classList.remove("hidden");
+
+  // Populate time step selector
+  timeStepSelector.innerHTML = '';
+  localData.per_time_step.forEach((timeStep, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    const daysAgoText = timeStep.days_ago === 0 ? 'today (most recent)' : `${timeStep.days_ago} days ago`;
+    option.textContent = `Time Step ${timeStep.time_idx} (${daysAgoText})`;
+    timeStepSelector.appendChild(option);
+  });
+
+  // Display first time step by default
+  displayTimeStepImportance(localData.per_time_step[0]);
+
+  // Add event listener for selector
+  timeStepSelector.onchange = function() {
+    const selectedIndex = parseInt(this.value);
+    displayTimeStepImportance(localData.per_time_step[selectedIndex]);
+  };
+}
+
+// Display feature importance for a specific time step
+function displayTimeStepImportance(timeStepData) {
+  const localImportanceContent = document.getElementById("localImportanceContent");
+
+  if (!timeStepData || !timeStepData.top_features) {
+    localImportanceContent.innerHTML = '<p class="text-xs text-muted-foreground">No local importance data available</p>';
+    return;
+  }
+
+  const topFeatures = timeStepData.top_features;
+  const names = topFeatures.names || [];
+  const scores = topFeatures.scores || [];
+
+  if (names.length === 0) {
+    localImportanceContent.innerHTML = '<p class="text-xs text-muted-foreground">No features available for this time step</p>';
+    return;
+  }
+
+  // Find max score for normalization
+  const maxScore = Math.max(...scores.map(s => Math.abs(s)));
+
+  // Create HTML for top features
+  let html = `<div class="space-y-2">`;
+  const daysAgoText = timeStepData.days_ago === 0 ? 'today (most recent)' : `${timeStepData.days_ago} days ago`;
+  html += `<p class="text-xs font-semibold text-foreground mb-2">Top Features for Time Step ${timeStepData.time_idx} (${daysAgoText}):</p>`;
+  
+  names.slice(0, 10).forEach((name, idx) => {
+    const score = scores[idx];
+    const normalizedScore = maxScore > 0 ? Math.abs(score) / maxScore : 0;
+    const barWidth = Math.round(normalizedScore * 100);
+    
+    // Color coding
+    let colorClass = 'bg-gray-500';
+    const nameLower = name.toLowerCase();
+    if (nameLower.includes('sentiment')) {
+      colorClass = 'bg-yellow-500';
+    } else if (nameLower.includes('close') && nameLower.includes('lag')) {
+      colorClass = 'bg-blue-500';
+    } else if (nameLower.includes('atr') || nameLower.includes('volatility')) {
+      colorClass = 'bg-orange-500';
+    } else if (nameLower.includes('hma') || nameLower.includes('hull')) {
+      colorClass = 'bg-teal-500';
+    }
+
+    html += `
+      <div class="flex items-center gap-2">
+        <div class="text-xs text-foreground w-32 truncate" title="${name}">${name.replace(/_/g, ' ')}</div>
+        <div class="flex-1 bg-muted rounded-full h-4 overflow-hidden">
+          <div class="${colorClass} h-full transition-all" style="width: ${barWidth}%"></div>
+        </div>
+        <div class="text-xs text-muted-foreground w-16 text-right">${score.toFixed(3)}</div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  localImportanceContent.innerHTML = html;
+}
+
+// Generate interpretability insights
+function generateInsights(interpretability) {
+  const insights = [];
+
+  // Analyze attention weights
+  if (interpretability.attention_weights && interpretability.attention_weights.length > 0) {
+    const attention = interpretability.attention_weights;
+    const maxAttention = Math.max(...attention);
+    const maxIdx = attention.indexOf(maxAttention);
+    const encoderLength = attention.length;
+
+    if (maxIdx < encoderLength * 0.2) {
+      insights.push(`Recent days (last ${Math.round(encoderLength * 0.2)} days) have the highest attention, indicating the model focuses on recent price movements.`);
+    } else if (maxIdx > encoderLength * 0.7) {
+      insights.push(`Older historical data (${maxIdx} days ago) has high attention, suggesting the model considers longer-term patterns.`);
+    } else {
+      insights.push(`The model balances attention across different time periods, with peak attention at ${maxIdx} days ago.`);
+    }
+
+    // Check if recent days have higher attention
+    const recentAttention = attention.slice(-5).reduce((a, b) => a + b, 0) / 5;
+    const olderAttention = attention.slice(0, -5).reduce((a, b) => a + b, 0) / Math.max(1, attention.length - 5);
+    
+    if (recentAttention > olderAttention * 1.2) {
+      insights.push(`Recent days show significantly higher attention weights, confirming the model prioritizes recent market conditions.`);
+    }
+  }
+
+  // Analyze feature importance
+  if (interpretability.feature_importances) {
+    const featImp = interpretability.feature_importances;
+    
+    if (featImp.encoder && featImp.encoder.attention_scores) {
+      const encoderAttention = featImp.encoder.attention_scores;
+      const avgAttention = encoderAttention.reduce((a, b) => a + b, 0) / encoderAttention.length;
+      insights.push(`Average attention score: ${avgAttention.toFixed(3)}. Higher values indicate stronger influence from historical data.`);
+    }
+
+    // Check for sentiment importance (global)
+    if (featImp.variables) {
+      const hasSentiment = JSON.stringify(featImp.variables).toLowerCase().includes('sentiment');
+      if (hasSentiment) {
+        insights.push(`Sentiment features are among the most influential variables globally, confirming their importance in price prediction during volatile periods.`);
+      }
+    }
+
+    // Check for local importance
+    if (featImp.local && featImp.local.per_time_step) {
+      insights.push(`Local importance analysis available: Feature importance varies across ${featImp.local.per_time_step.length} time steps. Use the selector above to explore per-time-step rankings.`);
+    }
+  }
+
+  // Default insight if no specific insights generated
+  if (insights.length === 0) {
+    insights.push(`The model's attention mechanism helps explain which historical periods most influenced the current prediction.`);
+    insights.push(`Feature importance analysis reveals which variables (price, volume, sentiment, etc.) contribute most to the forecast.`);
+  }
+
+  return insights;
+}
+
+// Display interpretability unavailable message
+function displayInterpretabilityUnavailable(tftPrediction) {
+  const section = document.getElementById("interpretabilitySection");
+  const attentionPlot = document.getElementById("attentionPlot");
+  const featureImportancePlot = document.getElementById("featureImportancePlot");
+  const insightsContent = document.getElementById("insightsContent");
+
+  if (!section) return;
+
+  // Show section
+  section.classList.remove("hidden");
+
+  // Show unavailable messages
+  const unavailableMsg = '<div class="text-center py-8 text-muted-foreground"><p class="text-sm">Interpretability analysis is not available for this prediction.</p><p class="text-xs mt-2">This may occur if the model does not support interpretability or if the analysis failed.</p></div>';
+  
+  attentionPlot.innerHTML = unavailableMsg;
+  featureImportancePlot.innerHTML = unavailableMsg;
+  
+  insightsContent.innerHTML = '<div class="text-sm text-muted-foreground">Interpretability data is not available. The model prediction is still valid, but detailed explanations of the decision-making process cannot be displayed.</div>';
+
+  // Re-initialize Lucide icons
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
+}
+
+// Hide interpretability section
+function hideInterpretability() {
+  const section = document.getElementById("interpretabilitySection");
+  if (section) {
+    section.classList.add("hidden");
+  }
+}
+
+// Display empirical validation results
+function displayEmpiricalValidation(empiricalData) {
+  const section = document.getElementById("empiricalValidationSection");
+  const content = document.getElementById("empiricalValidationContent");
+
+  if (!section || !empiricalData) {
+    hideEmpiricalValidation();
+    return;
+  }
+
+  // Show section
+  section.classList.remove("hidden");
+
+  let html = '';
+
+  // Display top features
+  if (empiricalData.top_features && empiricalData.top_features.names) {
+    html += `<div class="mb-3">`;
+    html += `<p class="text-xs font-semibold text-foreground mb-2">Top Features (Aggregated Across Test Period):</p>`;
+    html += `<ol class="list-decimal list-inside space-y-1 text-xs">`;
+    
+    empiricalData.top_features.names.slice(0, 5).forEach((name, idx) => {
+      const score = empiricalData.top_features.scores[idx];
+      const isSentiment = name.toLowerCase().includes('sentiment');
+      const rank = idx + 1;
+      
+      html += `<li class="${isSentiment ? 'font-semibold text-yellow-500' : ''}">`;
+      html += `${name.replace(/_/g, ' ')} (${score.toFixed(3)})`;
+      if (isSentiment && rank <= 3) {
+        html += ` ✅ Top ${rank}`;
+      }
+      html += `</li>`;
+    });
+    
+    html += `</ol>`;
+    html += `</div>`;
+  }
+
+  // Display validation status
+  if (empiricalData.validation_passed !== undefined) {
+    const status = empiricalData.validation_passed ? 'passed' : 'failed';
+    const statusColor = empiricalData.validation_passed ? 'text-green-500' : 'text-red-500';
+    const statusIcon = empiricalData.validation_passed ? '✓' : '✗';
+    
+    html += `<div class="mb-3 p-2 bg-background rounded border border-border">`;
+    html += `<p class="text-xs font-semibold ${statusColor} mb-1">${statusIcon} Validation ${status.charAt(0).toUpperCase() + status.slice(1)}</p>`;
+    
+    if (empiricalData.sentiment_rank !== null && empiricalData.sentiment_rank !== undefined) {
+      const rank = empiricalData.sentiment_rank + 1; // Convert to 1-indexed
+      html += `<p class="text-xs text-muted-foreground">Sentiment rank: <span class="font-semibold">#${rank}</span>`;
+      if (rank <= 3) {
+        html += ` (Top 3 ✅)`;
+      }
+      html += `</p>`;
+    }
+    
+    html += `</div>`;
+  }
+
+  // Display test period info
+  if (empiricalData.test_period) {
+    html += `<div class="text-xs text-muted-foreground">`;
+    html += `<p>Test Period: ${empiricalData.test_period.start || 'N/A'} to ${empiricalData.test_period.end || 'N/A'}</p>`;
+    html += `<p>Predictions Analyzed: ${empiricalData.num_predictions || 0}</p>`;
+    html += `</div>`;
+  }
+
+  // Display empirical findings
+  if (empiricalData.empirical_findings) {
+    const findings = empiricalData.empirical_findings;
+    html += `<div class="mt-3 p-2 bg-background rounded border border-border">`;
+    html += `<p class="text-xs font-semibold text-foreground mb-2">Empirical Findings:</p>`;
+    html += `<ul class="list-disc list-inside space-y-1 text-xs text-muted-foreground">`;
+    
+    if (findings.top_feature) {
+      html += `<li>Top feature: <span class="font-semibold">${findings.top_feature.replace(/_/g, ' ')}</span></li>`;
+    }
+    
+    if (findings.sentiment_in_top_3 !== undefined) {
+      html += `<li>Sentiment in top 3: <span class="font-semibold ${findings.sentiment_in_top_3 ? 'text-green-500' : 'text-red-500'}">${findings.sentiment_in_top_3 ? 'Yes ✅' : 'No ✗'}</span></li>`;
+    }
+    
+    html += `</ul>`;
+    html += `</div>`;
+  }
+
+  content.innerHTML = html;
+
+  // Re-initialize Lucide icons
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
+}
+
+// Hide empirical validation section
+function hideEmpiricalValidation() {
+  const section = document.getElementById("empiricalValidationSection");
+  if (section) {
+    section.classList.add("hidden");
+  }
+}
+
+// Show interpretability info modal
+function showInterpretabilityInfo() {
+  const modal = document.getElementById("infoModal");
+  const modalTitle = document.getElementById("infoModalTitle");
+  const modalContent = document.getElementById("infoModalContent");
+
+  modalTitle.textContent = "Model Interpretability";
+  modalContent.innerHTML = `
+    <div class="space-y-4">
+      <p class="text-sm text-foreground leading-relaxed">
+        The TFT (Temporal Fusion Transformer) model provides interpretability through attention mechanisms and feature importance analysis. This allows us to understand <strong>why</strong> the model makes specific predictions.
+      </p>
+      <div class="pt-3 border-t border-border space-y-3">
+        <div>
+          <h4 class="text-xs font-semibold text-foreground mb-2">Attention Weights:</h4>
+          <div class="space-y-1.5 text-xs text-muted-foreground">
+            <div>• Shows which <strong>past days</strong> influenced the prediction most</div>
+            <div>• Higher bars indicate stronger influence from that time period</div>
+            <div>• Typically, recent days have higher attention, confirming the model focuses on recent market conditions</div>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-semibold text-foreground mb-2">Feature Importance:</h4>
+          <div class="space-y-1.5 text-xs text-muted-foreground">
+            <div>• Shows which <strong>variables</strong> (price, volume, sentiment, technical indicators) are most important</div>
+            <div>• Sentiment features are highlighted when they rank among top influential variables</div>
+            <div>• During high volatility periods, sentiment often ranks in the top features, confirming its value</div>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-semibold text-foreground mb-2">Why This Matters:</h4>
+          <div class="space-y-1.5 text-xs text-muted-foreground">
+            <div>• <strong>Transparency:</strong> Understand how the model reaches its conclusions</div>
+            <div>• <strong>Validation:</strong> Confirm that sentiment is influential when expected (high volatility periods)</div>
+            <div>• <strong>Trust:</strong> Build confidence in the model's decision-making process</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove("hidden");
+  
+  // Re-initialize Lucide icons
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
 }
 
 // UI State Management

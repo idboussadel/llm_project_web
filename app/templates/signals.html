@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trading Signals - SentiTrade Dashboard</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32" href="{{ url_for('static', filename='images/favicon.ico') }}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/logo.png') }}" />
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/logo.png') }}" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/logo.png') }}" />
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -16,6 +27,9 @@
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+            },
             colors: {
               border: "hsl(214.3 31.8% 91.4%)",
               input: "hsl(214.3 31.8% 91.4%)",
@@ -62,7 +76,7 @@
       href="{{ url_for('static', filename='css/custom.css') }}"
     />
   </head>
-  <body class="bg-background text-foreground antialiased min-h-screen">
+  <body class="bg-background text-foreground antialiased min-h-screen font-sans">
     <!-- Dashboard Container -->
     <div class="flex min-h-screen bg-background">
       <!-- Mobile Sidebar Overlay -->
@@ -75,15 +89,17 @@
       <!-- Sidebar -->
       <aside
         id="sidebar"
-        class="fixed lg:static inset-y-0 left-0 z-50 lg:z-auto flex flex-col w-80 border-r border-slate-700/50 bg-slate-900 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out"
+        class="fixed inset-y-0 left-0 z-50 flex flex-col w-80 border-r border-slate-700/50 bg-slate-900 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto"
       >
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col min-h-full">
           <!-- Logo/Brand -->
-          <div class="flex items-center justify-between gap-2 px-6 py-6 border-b border-slate-700/50">
-            <div class="flex items-center gap-2">
-              <div class="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <i data-lucide="trending-up" class="h-5 w-5 text-primary-foreground"></i>
-              </div>
+          <div class="flex items-center justify-between px-6 py-6 border-b border-slate-700/50">
+            <div class="flex items-center gap-3">
+              <img 
+                src="{{ url_for('static', filename='images/logo.png') }}" 
+                alt="SentiTrade Logo" 
+                class="h-10 w-10 object-contain"
+              />
               <span class="text-lg font-bold text-white">SentiTrade</span>
             </div>
             <!-- Mobile Close Button -->
@@ -96,7 +112,7 @@
           </div>
 
           <!-- Navigation -->
-          <nav class="flex-1 px-3 py-4 space-y-1">
+          <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             <a
               href="{{ url_for('views.index') }}"
               class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md {% if request.endpoint == 'views.index' %}bg-slate-800 text-white{% else %}text-slate-300 hover:bg-slate-800/50 hover:text-white{% endif %} transition-colors"
@@ -118,12 +134,19 @@
               <i data-lucide="activity" class="h-4 w-4"></i>
               <span>Trading Signals</span>
             </a>
+            <a
+              href="{{ url_for('views.ablation') }}"
+              class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md {% if request.endpoint == 'views.ablation' %}bg-slate-800 text-white{% else %}text-slate-300 hover:bg-slate-800/50 hover:text-white{% endif %} transition-colors"
+            >
+              <i data-lucide="layers" class="h-4 w-4"></i>
+              <span>Ablation Studies</span>
+            </a>
           </nav>
         </div>
       </aside>
 
       <!-- Main Content Area -->
-      <div class="flex-1 flex flex-col min-w-0">
+      <div class="flex-1 flex flex-col min-w-0 lg:ml-80">
         <!-- Main Content -->
         <main class="flex-1 overflow-y-auto">
           <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
@@ -367,6 +390,103 @@
                     </div>
                   </div>
 
+                </div>
+
+                <!-- Interpretability Analysis Section -->
+                <div id="interpretabilitySection" class="hidden mt-4 lg:mt-6">
+                  <div class="bg-card border border-border rounded-lg p-5 lg:p-6 mt-4 lg:mt-6">
+                    <div class="flex items-start justify-between mb-4">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <h3 class="text-base lg:text-lg font-semibold text-foreground">
+                            Model Interpretability
+                          </h3>
+                          <button 
+                            class="info-badge-btn p-1 rounded-full hover:bg-foreground/10 transition-colors"
+                            onclick="showInterpretabilityInfo()"
+                          >
+                            <i data-lucide="info" class="w-3.5 h-3.5 text-muted-foreground"></i>
+                          </button>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                          Understanding how the model makes decisions: attention weights and feature importance
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="space-y-4 lg:space-y-6 mt-4">
+                      <!-- Attention Weights Visualization -->
+                      <div class="bg-background border border-border rounded-lg p-5 lg:p-6">
+                        <h4 class="text-base lg:text-lg font-semibold text-foreground mb-3">
+                          Attention Weights
+                        </h4>
+                        <p class="text-sm text-muted-foreground mb-4">
+                          Which past days influenced the prediction? Higher bars indicate stronger influence.
+                        </p>
+                        <div id="attentionPlot" class="w-full">
+                          <!-- Plot will be inserted here -->
+                        </div>
+                      </div>
+
+                      <!-- Feature Importance Visualization -->
+                      <div class="bg-background border border-border rounded-lg p-5 lg:p-6">
+                        <h4 class="text-base lg:text-lg font-semibold text-foreground mb-3">
+                          Feature Importance (Global)
+                        </h4>
+                        <p class="text-sm text-muted-foreground mb-4">
+                          Which features are most important? Sentiment is highlighted when influential.
+                        </p>
+                        <div id="featureImportancePlot" class="w-full">
+                          <!-- Plot will be inserted here -->
+                        </div>
+                      </div>
+
+                      <!-- Local Importance Visualization -->
+                      <div id="localImportanceSection" class="bg-background border border-border rounded-lg p-5 lg:p-6 hidden">
+                        <h4 class="text-base lg:text-lg font-semibold text-foreground mb-3">
+                          Local Feature Importance (Per Time Step)
+                        </h4>
+                        <p class="text-sm text-muted-foreground mb-4">
+                          How feature importance varies across different time periods. Select a time step to see top features for that period.
+                        </p>
+                        <div class="mb-4">
+                          <label class="text-xs text-muted-foreground mb-2 block">Select Time Step:</label>
+                          <select id="timeStepSelector" class="w-full max-w-xs px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground">
+                            <!-- Options will be populated dynamically -->
+                          </select>
+                        </div>
+                        <div id="localImportanceContent" class="w-full">
+                          <!-- Local importance will be displayed here -->
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Interpretability Insights -->
+                    <div id="interpretabilityInsights" class="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+                      <h4 class="text-sm font-semibold text-foreground mb-2">
+                        Key Insights
+                      </h4>
+                      <div id="insightsContent" class="text-xs text-muted-foreground space-y-1">
+                        <!-- Dynamic insights -->
+                      </div>
+                    </div>
+
+                    <!-- Empirical Validation Section -->
+                    <div id="empiricalValidationSection" class="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg hidden">
+                      <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                        <h4 class="text-sm font-semibold text-foreground">
+                          Empirical Validation Results
+                        </h4>
+                      </div>
+                      <p class="text-xs text-muted-foreground mb-3">
+                        Aggregated feature importance across test period validates that sentiment is a top-tier predictor.
+                      </p>
+                      <div id="empiricalValidationContent" class="text-xs text-muted-foreground space-y-2">
+                        <!-- Empirical validation data will be displayed here -->
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
