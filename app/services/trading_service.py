@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import time
 import requests
 
 import torch
@@ -47,10 +49,16 @@ class TradingSignalService:
     """
     Full pipeline for trading signal generation
     Multi-source data → Sentiment → Aggregation → TFT → Signals
-    """
     
+    OPTIMIZED: Includes caching and parallel processing
+    """
     _instance = None
     _initialized = False
+    
+    # Cache for yfinance data (TTL: 10 minutes - price data changes slowly)
+    _yfinance_cache = {}
+    _yfinance_cache_lock = threading.Lock()
+    _yfinance_cache_ttl = 600  # 10 minutes
     
     def __new__(cls):
         if cls._instance is None:
@@ -288,8 +296,10 @@ class TradingSignalService:
             if response.status_code == 200:
                 data = response.json()
                 if data and len(data) > 0:
+                    # Limit to maximum 100 items for Social Media
+                    data_limited = data[:100]
                     result = [item.get('headline', '') + '. ' + (item.get('summary', '') or '') 
-                             for item in data if item.get('headline')]
+                             for item in data_limited if item.get('headline')]
                     return result
                 else:
                     logger.warning(f"No Finnhub data for {ticker}")
@@ -459,39 +469,98 @@ class TradingSignalService:
         sentiment_service
     ) -> Dict:
         """
-        Analyze sentiment for each source sequentially
-        NOTE: PyTorch models are NOT thread-safe, so we MUST process sequentially
-        but with optimized large batch sizes for speed
+        Analyze sentiment for all sources in ONE optimized batch
+        OPTIMIZED: Combines all texts from all sources into single batch for maximum speed
         """
         results = {}
         
-        # Process sources sequentially (PyTorch models aren't thread-safe)
-        # But with large batch sizes (64-128), this is still fast
+        # Collect all texts with source mapping for efficient batch processing
         sources_with_texts = [(name, texts) for name, texts in sources_data.items() if texts]
         
         if not sources_with_texts:
             return results
         
-        total_texts = sum(len(texts) for _, texts in sources_with_texts)
+        # OPTIMIZATION: Combine all texts from all sources into one batch
+        # This is MUCH faster than processing each source sequentially
+        all_texts = []
+        source_indices = {}  # Map: source_name -> (start_idx, end_idx)
         
+        current_idx = 0
         for source_name, texts in sources_with_texts:
-            try:
-                result = self._analyze_single_source(source_name, texts, sentiment_service)
-                if result:
-                    results[result['source_name']] = {
-                        'texts': result['texts'],
-                        'individual_sentiments': result['individual_sentiments'],
-                        'average_score': result['average_score'],
-                        'average_confidence': result['average_confidence'],
-                        'dominant_sentiment': result['dominant_sentiment'],
-                        'sentiment': result['sentiment'],
-                        'score': result['score'],
-                        'confidence': result['confidence'],
-                        'count': result['count']
-                    }
-            except Exception as e:
-                logger.error(f"Error processing sentiment for {source_name}: {e}")
-                # Continue with other sources even if one fails
+            start_idx = current_idx
+            all_texts.extend(texts)
+            current_idx = len(all_texts)
+            source_indices[source_name] = (start_idx, current_idx)
+        
+        if not all_texts:
+            return results
+        
+        # Process ALL texts in ONE batch (much faster!)
+        try:
+            import os
+            is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None or os.getenv('RAILWAY_SERVICE_NAME') is not None
+            
+            # Use optimized batch size
+            max_batch_size = 32 if is_railway else 64
+            batch_size = min(max_batch_size, len(all_texts))
+            
+            # Single batch prediction for all texts
+            all_sentiments = sentiment_service.predict(all_texts, return_probs=True, batch_size=batch_size)
+            
+            # Split results back by source
+            for source_name, (start_idx, end_idx) in source_indices.items():
+                source_texts = sources_data[source_name]
+                source_sentiments = all_sentiments[start_idx:end_idx]
+                
+                # Calculate source-level aggregates
+                avg_score = np.mean([s['score'] for s in source_sentiments])
+                avg_confidence = np.mean([s['confidence'] for s in source_sentiments])
+                
+                # Determine dominant sentiment
+                if avg_score > 0.3:
+                    dominant = 'positive'
+                elif avg_score < -0.3:
+                    dominant = 'negative'
+                else:
+                    dominant = 'neutral'
+                
+                results[source_name] = {
+                    'texts': source_texts,
+                    'individual_sentiments': source_sentiments,
+                    'average_score': float(avg_score),
+                    'average_confidence': float(avg_confidence),
+                    'dominant_sentiment': dominant,
+                    'sentiment': dominant,
+                    'score': float(avg_score),
+                    'confidence': float(avg_confidence),
+                    'count': len(source_texts)
+                }
+            
+            # Clear memory after processing
+            if len(all_texts) > 50 and is_railway:
+                import gc
+                gc.collect()
+                
+        except Exception as e:
+            logger.error(f"Error in batch sentiment analysis: {e}")
+            # Fallback to sequential processing if batch fails
+            for source_name, texts in sources_with_texts:
+                try:
+                    result = self._analyze_single_source(source_name, texts, sentiment_service)
+                    if result:
+                        results[result['source_name']] = {
+                            'texts': result['texts'],
+                            'individual_sentiments': result['individual_sentiments'],
+                            'average_score': result['average_score'],
+                            'average_confidence': result['average_confidence'],
+                            'dominant_sentiment': result['dominant_sentiment'],
+                            'sentiment': result['sentiment'],
+                            'score': result['score'],
+                            'confidence': result['confidence'],
+                            'count': result['count']
+                        }
+                except Exception as e2:
+                    logger.error(f"Error processing sentiment for {source_name}: {e2}")
         
         return results
     
@@ -555,13 +624,32 @@ class TradingSignalService:
         
         try:
             # Step 1: Fetch historical data from yfinance (FREE - no API key needed)
+            # OPTIMIZATION: Cache yfinance data (price data changes slowly, 10min TTL)
             max_encoder = self.tft_config.get('max_encoder_length', 60)
             max_decoder = self.tft_config.get('max_prediction_length', 5)
             max_lag = 5  # Highest lag we engineer
             
-            # Optimize: Use period='2y' for faster download (yfinance optimizes this better)
-            # This provides ~500 trading days, which is more than enough for indicators
-            df = yf.download(ticker, period='2y', progress=False)
+            # Check cache first
+            df = None
+            with self._yfinance_cache_lock:
+                if ticker in self._yfinance_cache:
+                    cached_data, timestamp = self._yfinance_cache[ticker]
+                    if time.time() - timestamp < self._yfinance_cache_ttl:
+                        df = cached_data.copy()
+            
+            if df is None:
+                # Optimize: Use period='2y' for faster download (yfinance optimizes this better)
+                # This provides ~500 trading days, which is more than enough for indicators
+                df = yf.download(ticker, period='2y', progress=False)
+                
+                # Cache the result
+                with self._yfinance_cache_lock:
+                    self._yfinance_cache[ticker] = (df.copy(), time.time())
+                    # Clean cache if too large (>50 entries)
+                    if len(self._yfinance_cache) > 50:
+                        sorted_items = sorted(self._yfinance_cache.items(), key=lambda x: x[1][1])
+                        for key, _ in sorted_items[:10]:
+                            del self._yfinance_cache[key]
             
             if df.empty or len(df) < max_encoder:
                 raise ValueError(f"Insufficient data for {ticker}: got {len(df)} rows, need {max_encoder}")
@@ -630,6 +718,7 @@ class TradingSignalService:
             )
             
             # Step 6: Run TFT model prediction
+            # Note: We extract interpretability separately to avoid interfering with prediction
             raw_prediction = self.tft_model.predict(
                 predict_dataloader,
                 mode="raw",
@@ -637,19 +726,17 @@ class TradingSignalService:
                 return_decoder_lengths=True
             )
             
-            # Step 6.5: Compute interpretability analysis ONLY from real TFT predictions
-            # Extract VSN weights and attention weights directly from model
+            # Step 6.5: Extract interpretability (separate forward pass, but optimized)
+            # OPTIMIZATION: Only hooks encoder VSN (not all 1000+ tensors)
             interpretability_data = None
-            
             try:
-                # Extract interpretability directly from model forward pass
                 interpretability_data = self._extract_tft_interpretability(
                     predict_dataloader,
                     prediction_df,
                     ticker
                 )
             except Exception as e:
-                logger.warning(f"Interpretability analysis failed: {e}. No fake data will be generated.")
+                logger.warning(f"Interpretability extraction failed: {e}")
                 interpretability_data = None
             
             # Step 7: Extract and denormalize predictions

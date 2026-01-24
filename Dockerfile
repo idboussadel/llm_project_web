@@ -55,8 +55,14 @@ COPY . .
 # Expose port
 EXPOSE 8080
 
-# Use gunicorn on port 8080 with 1 worker (models are too large for multiple workers)
-# Using gevent async workers for better I/O handling with parallel API calls
-# Railway will automatically route traffic to this port
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "300", "--worker-class", "gevent", "--worker-connections", "1000", "wsgi:app"]
+# OPTIMIZED: Use --preload to load models once, then fork workers
+# This reduces memory usage and startup time via copy-on-write
+# PyTorch thread limits set in app/__init__.py prevent CPU oversubscription
+# Using gevent for async I/O (API calls) while keeping 1 worker for model safety
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV NUMEXPR_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+
+CMD ["gunicorn", "--preload", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "300", "--worker-class", "gevent", "--worker-connections", "1000", "wsgi:app"]
 

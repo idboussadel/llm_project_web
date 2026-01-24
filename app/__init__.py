@@ -2,10 +2,18 @@
 Flask Application Factory
 """
 import logging
+import os
 from pathlib import Path
 from flask import Flask
 from flask_cors import CORS
 from config import get_config
+
+# OPTIMIZATION: Limit PyTorch thread oversubscription (prevents slowdowns)
+# PyTorch can spawn many threads, causing CPU contention and slowdowns
+os.environ.setdefault('OMP_NUM_THREADS', '1')  # OpenMP threads
+os.environ.setdefault('MKL_NUM_THREADS', '1')   # Intel MKL threads
+os.environ.setdefault('NUMEXPR_NUM_THREADS', '1')  # NumExpr threads
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')  # OpenBLAS threads
 
 # Configure logging
 logging.basicConfig(
