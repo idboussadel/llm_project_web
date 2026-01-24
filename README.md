@@ -11,8 +11,6 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Live Demo](#) • [Documentation](#) • [Paper](ECAI_2023_template%20(1).pdf)
-
 </div>
 
 
