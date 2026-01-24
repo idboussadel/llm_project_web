@@ -77,24 +77,20 @@ class TradingSignalService:
             self.fmp_api_key = fmp_api_key
             
             # Initialize data collectors (required)
-            logger.info("Initializing data collectors...")
             self.financial_collector = FinancialDataCollector()
             
             if not news_api_key:
                 raise ValueError("NewsAPI key is required")
             
             self.news_collector = NewsAPICollector()
-            logger.info("NewsAPI collector initialized")
             
             # Load TFT model (required)
             if not tft_model_path or not tft_model_path.exists():
                 raise FileNotFoundError(f"TFT model not found at {tft_model_path}")
             
-            logger.info(f"Loading TFT model from {tft_model_path}")
             checkpoint_path = self._prepare_tft_checkpoint(tft_model_path)
             self.tft_model = TemporalFusionTransformer.load_from_checkpoint(str(checkpoint_path))
             self.tft_model.eval()
-            logger.info("✅ TFT model loaded successfully")
             
             # Load TFT configuration
             tft_data_dir = tft_model_path.parent.parent.parent / "data" / "tft"
@@ -105,13 +101,11 @@ class TradingSignalService:
             import json
             with open(config_path, 'r') as f:
                 self.tft_config = json.load(f)
-            logger.info(f"✅ TFT config loaded: {len(self.tft_config.get('tickers', []))} tickers")
             
             # Load scalers for denormalization
             scalers_path = tft_data_dir / "scalers.pkl"
             if scalers_path.exists():
                 self.scalers = self._load_scalers(scalers_path)
-                logger.info("✅ Scalers loaded for price denormalization")
             
         except Exception as e:
             logger.error(f"Failed to initialize trading signal service: {e}")
@@ -143,7 +137,6 @@ class TradingSignalService:
                 f"{checkpoint_path.stem}_patched{checkpoint_path.suffix}"
             )
             torch.save(checkpoint, str(patched_path))
-            logger.info(f"Patched TFT checkpoint written to {patched_path}")
             return patched_path
 
         # Prefer previously patched checkpoint if it exists
@@ -151,7 +144,6 @@ class TradingSignalService:
             f"{checkpoint_path.stem}_patched{checkpoint_path.suffix}"
         )
         if patched_path.exists():
-            logger.info(f"Using previously patched TFT checkpoint at {patched_path}")
             return patched_path
 
         return checkpoint_path
@@ -204,29 +196,24 @@ class TradingSignalService:
         """
         try:
             # Step 1: Collect multi-source data
-            logger.info(f"Collecting data for {ticker}...")
             sources_data = self._collect_multi_source_data(ticker)
             
             # Step 2: Analyze sentiment for each source
-            logger.info("Analyzing sentiment across sources...")
             sentiment_results = self._analyze_multi_source_sentiment(
                 sources_data,
                 sentiment_service
             )
             
             # Step 3: Hierarchical aggregation
-            logger.info("Performing hierarchical aggregation...")
             aggregated_sentiment = self._hierarchical_aggregation(sentiment_results)
             
             # Step 4: Generate TFT prediction
-            logger.info("Generating TFT prediction...")
             tft_prediction = self._generate_tft_prediction(
                 ticker,
                 aggregated_sentiment
             )
             
             # Step 5: Generate trading signal
-            logger.info("Generating trading signal...")
             trading_signal = self._generate_trading_signal(
                 aggregated_sentiment,
                 tft_prediction
@@ -270,7 +257,6 @@ class TradingSignalService:
                 if articles:
                     result = [a.get('title', '') + '. ' + (a.get('description', '') or '') 
                              for a in articles if a.get('title')]
-                    logger.info(f"Collected {len(result)} real news articles from NewsAPI")
                     return result
                 else:
                     logger.warning("No articles found from NewsAPI")
@@ -304,7 +290,6 @@ class TradingSignalService:
                 if data and len(data) > 0:
                     result = [item.get('headline', '') + '. ' + (item.get('summary', '') or '') 
                              for item in data if item.get('headline')]
-                    logger.info(f"Collected {len(result)} items from Finnhub")
                     return result
                 else:
                     logger.warning(f"No Finnhub data for {ticker}")
@@ -330,9 +315,6 @@ class TradingSignalService:
                     url = f'{endpoint}&apikey={self.fmp_api_key}'
                     response = requests.get(url, timeout=10)
                     
-                    logger.info(f"FMP trying: {endpoint}")
-                    logger.info(f"FMP Status: {response.status_code}")
-                    
                     if response.status_code == 200:
                         data = response.json()
                         
@@ -349,7 +331,6 @@ class TradingSignalService:
                                 f"Net income was ${net_income:,.0f} for the quarter",
                                 f"Diluted EPS came in at ${eps:.2f} per share"
                             ]
-                            logger.info(f"Collected {ticker} earnings data from {date} income statement")
                             return result
                         
                         elif 'profile' in endpoint and data and len(data) > 0:
@@ -358,7 +339,6 @@ class TradingSignalService:
                             if description:
                                 sentences = description.split('. ')
                                 result = [s + '.' for s in sentences if len(s) > 20]
-                                logger.info(f"Using company profile as earnings context")
                                 return result
                     
                     elif response.status_code == 403:
@@ -403,7 +383,6 @@ class TradingSignalService:
             sources['earnings'] = []
         
         # Execute all API calls in parallel using ThreadPoolExecutor
-        logger.info(f"Fetching data from {len(tasks)} sources in parallel for {ticker}...")
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = {executor.submit(func, *args): key for key, (func, *args) in tasks.items()}
             
@@ -432,13 +411,11 @@ class TradingSignalService:
             if is_railway:
                 # Railway has limited memory - use smaller batches to prevent OOM kills
                 max_batch_size = 32
-                logger.info(f"Railway environment detected - using conservative batch_size={max_batch_size}")
             else:
                 # Local development - can use larger batches
                 max_batch_size = 64
             
             batch_size = min(max_batch_size, len(texts))  # Don't exceed text count
-            logger.info(f"Analyzing {len(texts)} texts for {source_name} with batch_size={batch_size}")
             
             # Batch analyze with optimized batch size
             sentiments = sentiment_service.predict(texts, return_probs=True, batch_size=batch_size)
@@ -447,7 +424,6 @@ class TradingSignalService:
             if len(texts) > 50 and is_railway:
                 import gc
                 gc.collect()
-                logger.debug(f"Garbage collected after processing {len(texts)} texts")
             
             # Calculate source-level aggregates
             avg_score = np.mean([s['score'] for s in sentiments])
@@ -460,8 +436,6 @@ class TradingSignalService:
                 dominant = 'negative'
             else:
                 dominant = 'neutral'
-            
-            logger.info(f"Completed {source_name}: {len(texts)} texts analyzed, avg_score={avg_score:.3f}")
             
             return {
                 'source_name': source_name,
@@ -499,7 +473,6 @@ class TradingSignalService:
             return results
         
         total_texts = sum(len(texts) for _, texts in sources_with_texts)
-        logger.info(f"Analyzing sentiment for {len(sources_with_texts)} sources ({total_texts} total texts)...")
         
         for source_name, texts in sources_with_texts:
             try:
@@ -520,7 +493,6 @@ class TradingSignalService:
                 logger.error(f"Error processing sentiment for {source_name}: {e}")
                 # Continue with other sources even if one fails
         
-        logger.info(f"Completed sentiment analysis for {len(results)} sources")
         return results
     
     def _hierarchical_aggregation(self, sentiment_results: Dict) -> Dict:
@@ -569,21 +541,20 @@ class TradingSignalService:
     def _generate_tft_prediction(self, ticker: str, aggregated_sentiment: Dict) -> Dict:
         """
         Generate TFT price prediction using the trained model with REAL data
-        Returns a fallback prediction if ticker is not in trained set
+        Attempts TFT for all tickers - model may generalize to untrained tickers
+        Falls back to sentiment-only prediction if TFT fails
         """
         if self.tft_model is None or self.tft_config is None:
             raise RuntimeError("TFT model not loaded")
         
-        # Check if ticker is in trained tickers
+        # Check if ticker is in trained tickers (for logging only, don't skip TFT)
         trained_tickers = self.tft_config.get('tickers', [])
         if ticker not in trained_tickers:
-            logger.warning(f"{ticker} not in trained tickers {trained_tickers}. Using sentiment-only prediction.")
-            # Return a sentiment-based prediction without TFT model
-            return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment)
+            logger.warning(f"{ticker} not in trained tickers {trained_tickers}. Attempting TFT prediction anyway (model may generalize).")
+            # Don't return early - let TFT try to run for untrained tickers
         
         try:
             # Step 1: Fetch historical data from yfinance (FREE - no API key needed)
-            logger.info(f"Fetching {ticker} price history from yfinance...")
             max_encoder = self.tft_config.get('max_encoder_length', 60)
             max_decoder = self.tft_config.get('max_prediction_length', 5)
             max_lag = 5  # Highest lag we engineer
@@ -605,36 +576,16 @@ class TradingSignalService:
             df['Ticker'] = ticker
             
             # Step 2: Calculate technical indicators using existing preprocessor
-            logger.info(f"Calculating technical indicators for {ticker}...")
             indicator_calc = TechnicalIndicatorCalculator()
             df = indicator_calc.add_all_indicators(df)
             
             # Step 3: Add required features from tft_config
-            logger.info(f"Engineering features for {ticker}...")
             df = self._engineer_tft_features(df, ticker, aggregated_sentiment)
             
             # Step 4: Prepare for TFT prediction
-            logger.info(f"Preparing TFT dataset for {ticker}...")
             prediction_df = self._prepare_tft_dataset(df, ticker)
             
             # Step 5: Create DataLoader for prediction
-            logger.info(f"Creating prediction DataLoader for {ticker}...")
-            
-            logger.info(
-                "Prediction frame rows=%s, time_idx_range=(%s, %s)",
-                len(prediction_df),
-                prediction_df['time_idx'].min(),
-                prediction_df['time_idx'].max()
-            )
-            logger.info(
-                "TFT feature stats: Close[%s,%s] Returns[%s,%s] sentiment_score[%s,%s]",
-                prediction_df['Close'].min(),
-                prediction_df['Close'].max(),
-                prediction_df['Returns'].min(),
-                prediction_df['Returns'].max(),
-                prediction_df['sentiment_score'].min(),
-                prediction_df['sentiment_score'].max()
-            )
             
             model_hparams = getattr(self.tft_model, "hparams", {})
             static_reals = list(model_hparams.get("static_reals", []))
@@ -679,7 +630,6 @@ class TradingSignalService:
             )
             
             # Step 6: Run TFT model prediction
-            logger.info(f"Running TFT model prediction for {ticker}...")
             raw_prediction = self.tft_model.predict(
                 predict_dataloader,
                 mode="raw",
@@ -689,7 +639,6 @@ class TradingSignalService:
             
             # Step 6.5: Compute interpretability analysis ONLY from real TFT predictions
             # Extract VSN weights and attention weights directly from model
-            logger.info(f"Computing interpretability analysis for {ticker} from real TFT model...")
             interpretability_data = None
             
             try:
@@ -699,8 +648,6 @@ class TradingSignalService:
                     prediction_df,
                     ticker
                 )
-                if interpretability_data is None:
-                    logger.info("Interpretability extraction returned None")
             except Exception as e:
                 logger.warning(f"Interpretability analysis failed: {e}. No fake data will be generated.")
                 interpretability_data = None
@@ -726,14 +673,8 @@ class TradingSignalService:
                     f"(current_price={current_price:.2f}). Model may be incompatible or data mismatch. "
                     f"Falling back to sentiment-only prediction."
                 )
-                return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment)
-            
-            logger.info(
-                "TFT raw prediction shape=%s quantiles=%s last_step=%s",
-                predictions.shape,
-                quantiles,
-                np.round(predictions[0, -1, :], 6).tolist() if predictions.size else None
-            )
+                # Preserve interpretability data even if prediction fails
+                return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment, interpretability_data)
             
             # Extract quantiles properly
             # TFT typically outputs: [q10, q50, q90] or similar
@@ -855,7 +796,8 @@ class TradingSignalService:
                     f"predicted={final_prediction:.2f}, current={current_price:.2f} "
                     f"(ratio={final_prediction/current_price:.2f}x). Falling back to sentiment-only."
                 )
-                return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment)
+                # Preserve interpretability data even if prediction fails
+                return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment, interpretability_data)
             
             # Also check if raw predictions are already huge (before denormalization)
             raw_max = np.abs(median_predictions).max()
@@ -864,7 +806,8 @@ class TradingSignalService:
                     f"TFT raw predictions for {ticker} are too large: max={raw_max:.2f}. "
                     f"Falling back to sentiment-only."
                 )
-                return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment)
+                # Preserve interpretability data even if prediction fails
+                return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment, interpretability_data)
 
             # Calculate predicted return (percentage)
             if current_price > 0:
@@ -903,16 +846,6 @@ class TradingSignalService:
             if lower_return > upper_return:
                 lower_return, upper_return = upper_return, lower_return
             
-            logger.info(
-                "TFT denormalized prices=%s final=%.4f current=%.4f return=%.6f CI=[%.4f%%, %.4f%%]",
-                np.round(median_predictions, 4).tolist(),
-                final_prediction,
-                current_price,
-                predicted_return,
-                lower_return * 100,
-                upper_return * 100
-            )
-            
             result = {
                 'predicted_return': float(predicted_return),
                 'predicted_price': float(final_prediction),
@@ -930,11 +863,6 @@ class TradingSignalService:
             # NO FAKE DATA - if interpretability is None, don't add it
             if interpretability_data:
                 result['interpretability'] = interpretability_data
-                has_attention = bool(interpretability_data.get('attention_plot'))
-                has_feature = bool(interpretability_data.get('feature_importance_plot'))
-                logger.info(f"✅ Real interpretability data included: attention_plot={has_attention}, feature_plot={has_feature}")
-            else:
-                logger.info("ℹ️ No interpretability data available (TFT interpret_output not available or failed)")
                 # Don't add interpretability field at all - frontend will handle gracefully
             
             return result
@@ -943,9 +871,21 @@ class TradingSignalService:
             logger.error(f"TFT prediction failed for {ticker}: {e}")
             # Fallback to sentiment-only prediction if TFT fails
             logger.warning(f"Falling back to sentiment-only prediction for {ticker}")
-            return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment)
+            # Try to extract interpretability even if prediction failed
+            interpretability_data = None
+            try:
+                # If we have the model and data, try to extract interpretability
+                if self.tft_model is not None and 'df' in locals():
+                    interpretability_data = self._extract_tft_interpretability(
+                        self.tft_model,
+                        df,
+                        ticker
+                    )
+            except Exception as interpret_error:
+                logger.warning(f"Could not extract interpretability during fallback: {interpret_error}")
+            return self._generate_sentiment_only_prediction(ticker, aggregated_sentiment, interpretability_data)
     
-    def _generate_sentiment_only_prediction(self, ticker: str, aggregated_sentiment: Dict) -> Dict:
+    def _generate_sentiment_only_prediction(self, ticker: str, aggregated_sentiment: Dict, interpretability_data: Optional[Dict] = None) -> Dict:
         """
         Generate a basic price prediction based on sentiment only (no TFT model)
         Used when ticker is not in trained set or TFT fails
@@ -987,12 +927,7 @@ class TradingSignalService:
             lower_return = predicted_return - uncertainty
             upper_return = predicted_return + uncertainty
             
-            logger.info(
-                f"Sentiment-only prediction for {ticker}: return={predicted_return:.4f} "
-                f"CI=[{lower_return:.4f}, {upper_return:.4f}]"
-            )
-            
-            return {
+            result = {
                 'predicted_return': float(predicted_return),
                 'predicted_price': float(predicted_price),
                 'current_price': float(current_price),
@@ -1006,10 +941,16 @@ class TradingSignalService:
                 'note': f'TFT model not trained for {ticker}. Using sentiment-based prediction.'
             }
             
+            # Include interpretability data if available (even though prediction failed)
+            if interpretability_data:
+                result['interpretability'] = interpretability_data
+            
+            return result
+            
         except Exception as e:
             logger.error(f"Sentiment-only prediction failed for {ticker}: {e}")
             # Last resort: return zero prediction (NO FAKE DATA)
-            return {
+            result = {
                 'predicted_return': 0.0,
                 'predicted_price': 0.0,
                 'current_price': 0.0,
@@ -1022,6 +963,10 @@ class TradingSignalService:
                 'data_points_used': 0,
                 'note': f'Unable to generate prediction for {ticker}'
             }
+            # Include interpretability data if available (even if everything else failed)
+            if interpretability_data:
+                result['interpretability'] = interpretability_data
+            return result
     
     def _engineer_tft_features(self, df: pd.DataFrame, ticker: str, current_sentiment: Dict) -> pd.DataFrame:
         """Add all features required by TFT config"""
@@ -1120,13 +1065,6 @@ class TradingSignalService:
         max_lag = 5  # Maximum lag from engineered lag features
         start_idx = max_encoder + max_lag
         df['time_idx'] = range(start_idx, start_idx + len(df))
-        logger.info(
-            "Prepared TFT dataframe for %s with %s rows (time_idx %s-%s)",
-            ticker,
-            len(df),
-            df['time_idx'].min(),
-            df['time_idx'].max()
-        )
         
         # Don't add group_id - use Ticker as-is (it's already in the dataframe)
         # Ensure Ticker column exists
@@ -1250,16 +1188,15 @@ class TradingSignalService:
             attention_modules_found = []
             
             # Find attention and VSN modules
+            # OPTIMIZATION: Only hook encoder VSN to avoid capturing 1000+ tensors
             for name, module in self.tft_model.named_modules():
                 if 'attention' in name.lower() and 'multihead' in name.lower():
                     hooks.append(module.register_forward_hook(attention_hook))
                     attention_modules_found.append(name)
-                elif 'variable_selection' in name.lower() or 'vsn' in name.lower():
+                elif ('variable_selection' in name.lower() or 'vsn' in name.lower()) and 'encoder' in name.lower():
+                    # Only hook encoder VSN modules to reduce captured tensors
                     hooks.append(module.register_forward_hook(vsn_hook))
                     vsn_modules_found.append(name)
-            
-            logger.info(f"Found {len(attention_modules_found)} attention modules: {attention_modules_found}")
-            logger.info(f"Found {len(vsn_modules_found)} VSN modules: {vsn_modules_found}")
             
             # Run forward pass to trigger hooks
             with torch.no_grad():
@@ -1292,43 +1229,68 @@ class TradingSignalService:
             # Process captured VSN weights
             vsn_weights = None
             if captured_vsn:
-                # Log all captured VSN tensors to understand their shapes
-                for idx, vsn_tensor in enumerate(captured_vsn):
-                    if isinstance(vsn_tensor, torch.Tensor):
-                        logger.info(f"Captured VSN tensor {idx}: shape={vsn_tensor.shape}")
-                
-                # Try to find encoder VSN (should have encoder_length time steps)
-                # If multiple VSN outputs, prefer the one with encoder_length dimension
+                # Calculate expected number of input features
                 encoder_length = self.tft_config.get('max_encoder_length', 60)
+                encoder_vars = self.tft_config.get('time_varying_unknown', [])
+                known_vars = self.tft_config.get('time_varying_known', [])
+                expected_num_features = len(encoder_vars) + len(known_vars)
+                
+                # Try to find encoder VSN that matches BOTH encoder_length AND number of input features
+                # This ensures we get the INPUT feature selection layer, not an internal hidden layer
                 best_vsn = None
                 best_vsn_idx = -1
+                best_match_score = -1
                 
                 for idx, vsn_tensor in enumerate(captured_vsn):
                     if isinstance(vsn_tensor, torch.Tensor):
                         shape = vsn_tensor.shape
-                        # Look for VSN with encoder_length in time dimension
-                        # Shape could be (batch, encoder_length, features) or (encoder_length, features)
                         if len(shape) >= 2:
-                            # Check if any dimension matches encoder_length
-                            if encoder_length in shape or shape[0] == encoder_length or (len(shape) > 1 and shape[1] == encoder_length):
-                                best_vsn = vsn_tensor
-                                best_vsn_idx = idx
-                                logger.info(f"Selected VSN tensor {idx} as encoder VSN: shape={shape}")
-                                break
+                            # Check dimensions: should have encoder_length in time dimension
+                            has_encoder_length = (encoder_length in shape) or (shape[0] == encoder_length) or (len(shape) > 1 and shape[1] == encoder_length)
+                            
+                            if has_encoder_length:
+                                # Get the feature dimension (last dimension)
+                                if len(shape) == 2:
+                                    num_features = shape[1]
+                                elif len(shape) == 3:
+                                    num_features = shape[2]  # (batch, time, features)
+                                else:
+                                    num_features = shape[-1]
+                                
+                                # Score: prefer exact match, then closest match
+                                if num_features == expected_num_features:
+                                    # Perfect match - use this one!
+                                    best_vsn = vsn_tensor
+                                    best_vsn_idx = idx
+                                    best_match_score = 100
+                                    break
+                                else:
+                                    # Calculate match score (closer to expected = better)
+                                    # Prefer tensors with feature count close to expected
+                                    score = 100 - abs(num_features - expected_num_features)
+                                    if score > best_match_score:
+                                        best_vsn = vsn_tensor
+                                        best_vsn_idx = idx
+                                        best_match_score = score
                 
-                # If no encoder VSN found, use the last one (might be decoder)
-                if best_vsn is None and captured_vsn:
+                # If we found a match, use it
+                if best_vsn is not None:
+                    actual_shape = best_vsn.shape
+                    if len(actual_shape) >= 2:
+                        actual_features = actual_shape[-1] if len(actual_shape) > 2 else actual_shape[1]
+                        if actual_features != expected_num_features:
+                            logger.warning(f"Using VSN tensor {best_vsn_idx} with {actual_features} features (expected {expected_num_features}). Feature mapping may be approximate.")
+                elif captured_vsn:
+                    # Fallback: use last tensor if no match found
                     best_vsn = captured_vsn[-1]
                     best_vsn_idx = len(captured_vsn) - 1
-                    logger.warning(f"No encoder VSN found, using last VSN tensor {best_vsn_idx}: shape={best_vsn.shape if isinstance(best_vsn, torch.Tensor) else 'unknown'}")
+                    logger.warning(f"No matching VSN found, using last VSN tensor {best_vsn_idx}: shape={best_vsn.shape if isinstance(best_vsn, torch.Tensor) else 'unknown'}")
                 
                 if best_vsn is not None and isinstance(best_vsn, torch.Tensor):
                     vsn_weights = best_vsn.numpy()
-                    logger.info(f"Using VSN weights shape: {vsn_weights.shape}")
                     # Average across batch if needed
                     if len(vsn_weights.shape) > 2:
                         vsn_weights = vsn_weights.mean(axis=0)
-                        logger.info(f"After batch averaging: {vsn_weights.shape}")
             
             # Extract feature importance from VSN
             feature_importances = self._extract_vsn_feature_importance(
@@ -1359,9 +1321,17 @@ class TradingSignalService:
             
             feature_importance_img = None
             if feature_importances:
-                feature_importance_img = self._plot_feature_importance(feature_importances, prediction_df)
+                try:
+                    feature_importance_img = self._plot_feature_importance(feature_importances, prediction_df)
+                    if feature_importance_img is None:
+                        logger.warning(f"Feature importance plot generation returned None for {ticker}")
+                except Exception as e:
+                    logger.error(f"Error generating feature importance plot for {ticker}: {e}", exc_info=True)
+                    feature_importance_img = None
             
-            if attention_img or feature_importance_img:
+            # Return interpretability data even if plots failed - frontend can use raw data
+            # Only return None if we have NO interpretability data at all
+            if feature_importances or attention_weights is not None:
                 return {
                     'attention_weights': attention_weights.tolist() if attention_weights is not None else None,
                     'feature_importances': feature_importances,
@@ -1369,6 +1339,7 @@ class TradingSignalService:
                     'feature_importance_plot': feature_importance_img
                 }
             
+            logger.warning(f"No interpretability data available for {ticker}")
             return None
                 
         except Exception as e:
@@ -1404,6 +1375,7 @@ class TradingSignalService:
             
             # Map to feature names
             all_features = encoder_vars + known_vars[:len(global_importance)]
+            
             if len(global_importance) >= len(all_features):
                 feature_scores = {}
                 for i, feature in enumerate(all_features):
@@ -1429,11 +1401,9 @@ class TradingSignalService:
                 # vsn_weights shape: (batch, time_steps, num_features)
                 # Average across batch only: (time_steps, num_features)
                 local_importance = vsn_weights.mean(axis=0)  # Keep time_steps dimension
-                logger.info(f"Local importance from 3D VSN: shape={local_importance.shape} (time_steps={local_importance.shape[0]}, features={local_importance.shape[1]})")
             elif len(vsn_weights.shape) == 2:
                 # If only 2D: (time_steps, num_features) - no batch dimension
                 local_importance = vsn_weights
-                logger.info(f"Local importance from 2D VSN: shape={local_importance.shape} (time_steps={local_importance.shape[0]}, features={local_importance.shape[1]})")
             
             # FALLBACK: If VSN only has 1 time step (decoder VSN), create local importance from attention weights
             # This happens when we capture decoder VSN instead of encoder VSN
@@ -1447,7 +1417,6 @@ class TradingSignalService:
             if local_importance is None or local_importance.shape[0] == 1:
                 # Fallback: Create local importance using attention weights + global feature importance
                 # This gives us per-time-step importance even if VSN doesn't provide it
-                logger.info("Creating local importance fallback using attention weights and global feature importance")
                 
                 # Get encoder length
                 encoder_length = self.tft_config.get('max_encoder_length', 60)
@@ -1483,8 +1452,6 @@ class TradingSignalService:
                         attention_per_time = attention_per_time / attention_per_time.sum()
                     else:
                         attention_per_time = np.ones(encoder_length) / encoder_length
-                    
-                    logger.info(f"Using attention weights for local importance fallback: shape={attention_per_time.shape}")
                 else:
                     # Create uniform distribution as last resort
                     attention_per_time = np.ones(encoder_length) / encoder_length
@@ -1510,8 +1477,6 @@ class TradingSignalService:
                 
                 # Update all_features for later use in the loop below
                 all_features = feature_list
-                
-                logger.info(f"Created fallback local importance: shape={local_importance.shape} (time_steps={local_importance.shape[0]}, features={local_importance.shape[1]})")
             
             if local_importance is not None and local_importance.shape[0] > 1:
                 # Ensure all_features is defined (should be set above, but check for safety)
@@ -1553,8 +1518,6 @@ class TradingSignalService:
                     'time_steps': list(range(len(local_per_time_step))),
                     'per_time_step': local_per_time_step
                 }
-                
-                logger.info(f"✅ Extracted local importance for {len(local_per_time_step)} time steps (from {local_importance.shape[0]} time steps in VSN weights)")
         else:
             # Fallback: use variance/std as proxy for importance
             feature_scores = {}
@@ -1608,9 +1571,6 @@ class TradingSignalService:
                 'test_period': {'start': '2024-09-01', 'end': '2024-11-30'}
             }
         """
-        logger.info(f"Computing empirical feature importance across test period...")
-        logger.info(f"Test tickers: {test_tickers}, Test dates: {len(test_dates)} dates")
-        
         all_feature_importances = []
         successful_predictions = 0
         failed_predictions = 0
@@ -1701,13 +1661,6 @@ class TradingSignalService:
             'names': [f[0] for f in sorted_aggregated[:top_n]],
             'scores': [f[1] for f in sorted_aggregated[:top_n]]
         }
-        
-        logger.info(f"✅ Empirical validation complete:")
-        logger.info(f"   - Total predictions: {successful_predictions}")
-        logger.info(f"   - Failed predictions: {failed_predictions}")
-        logger.info(f"   - Top 3 features: {[f[0] for f in sorted_aggregated[:3]]}")
-        logger.info(f"   - Sentiment rank: {sentiment_rank + 1 if sentiment_rank is not None else 'N/A'}")
-        logger.info(f"   - Validation passed: {validation_passed}")
         
         return {
             'aggregated_ranking': sorted_aggregated,
@@ -2048,24 +2001,37 @@ class TradingSignalService:
                 bars = axes[1].barh(important_vars, importance_scores, color=colors, alpha=0.7)
                 axes[1].set_xlabel('Normalized Importance Score', fontsize=12, fontweight='bold')
                 axes[1].set_ylabel('Feature', fontsize=12, fontweight='bold')
-                axes[1].set_title('Variable Selection Network (VSN): Feature Importance Ranking', 
+                axes[1].set_title('Variable Selection Network (VSN): Feature Importance Ranking (Global)', 
                                  fontsize=14, fontweight='bold')
                 axes[1].grid(axis='x', alpha=0.3, linestyle='--')
                 
-                # Add legend for highlighted features
+                # Add legend for color-coded features
                 from matplotlib.patches import Patch
                 legend_elements = []
-                if any('sentiment' in v.lower() for v in important_vars):
-                    legend_elements.append(Patch(facecolor='gold', alpha=0.7, label='Sentiment'))
-                if any('close' in v.lower() and 'lag' in v.lower() for v in important_vars):
-                    legend_elements.append(Patch(facecolor='steelblue', alpha=0.7, label='Price Lag'))
-                if any('atr' in v.lower() or 'volatility' in v.lower() for v in important_vars):
-                    legend_elements.append(Patch(facecolor='coral', alpha=0.7, label='Volatility'))
-                if any('hma' in v.lower() or 'hull' in v.lower() for v in important_vars):
-                    legend_elements.append(Patch(facecolor='teal', alpha=0.7, label='HMA'))
                 
+                # Check which color categories are actually used in the plot
+                used_colors = set(colors)
+                if 'gold' in used_colors:
+                    legend_elements.append(Patch(facecolor='gold', alpha=0.7, label='Sentiment'))
+                if 'steelblue' in used_colors:
+                    legend_elements.append(Patch(facecolor='steelblue', alpha=0.7, label='Price Lag'))
+                if 'coral' in used_colors:
+                    legend_elements.append(Patch(facecolor='coral', alpha=0.7, label='Volatility'))
+                if 'teal' in used_colors:
+                    legend_elements.append(Patch(facecolor='teal', alpha=0.7, label='HMA'))
+                if 'gray' in used_colors:
+                    legend_elements.append(Patch(facecolor='gray', alpha=0.7, label='Other Features'))
+                
+                # Always show legend if we have bars
                 if legend_elements:
-                    axes[1].legend(handles=legend_elements, loc='lower right', fontsize=9)
+                    axes[1].legend(handles=legend_elements, loc='lower right', fontsize=10, framealpha=0.9)
+            else:
+                # If no variables to plot, log warning
+                logger.warning(f"No variables found in feature_importances for plotting. Keys: {list(feature_importances.keys())}")
+                axes[1].text(0.5, 0.5, 'No feature importance data available', 
+                            ha='center', va='center', transform=axes[1].transAxes)
+                axes[1].set_title('Variable Selection Network (VSN): Feature Importance Ranking', 
+                                 fontsize=14, fontweight='bold')
             
             plt.tight_layout(pad=3.0)
             

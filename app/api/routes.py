@@ -2,6 +2,9 @@
 API Routes Blueprint - REST endpoints for sentiment analysis
 """
 import logging
+import time
+import threading
+from functools import wraps
 from flask import Blueprint, request, jsonify, current_app
 from app.services.model_service import sentiment_service
 from app.services.data_service import DataService
@@ -10,6 +13,34 @@ from app.services.trading_service import trading_signal_service
 logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+# Simple in-memory cache for signal results (TTL: 5 minutes)
+_signal_cache = {}
+_cache_lock = threading.Lock()
+CACHE_TTL = 300  # 5 minutes
+
+def get_cached_result(ticker: str):
+    """Get cached result if still valid"""
+    with _cache_lock:
+        if ticker in _signal_cache:
+            result, timestamp = _signal_cache[ticker]
+            if time.time() - timestamp < CACHE_TTL:
+                return result
+            else:
+                # Expired, remove it
+                del _signal_cache[ticker]
+    return None
+
+def set_cached_result(ticker: str, result):
+    """Cache a result"""
+    with _cache_lock:
+        _signal_cache[ticker] = (result, time.time())
+        # Clean up old entries if cache gets too large (>100 entries)
+        if len(_signal_cache) > 100:
+            # Remove oldest 20% of entries
+            sorted_items = sorted(_signal_cache.items(), key=lambda x: x[1][1])
+            for key, _ in sorted_items[:20]:
+                del _signal_cache[key]
 
 
 @api_bp.route('/health', methods=['GET'])
@@ -258,6 +289,8 @@ def generate_trading_signals():
     Generate trading signals using full pipeline
     Multi-source → Sentiment → Aggregation → TFT → Signals
     
+    OPTIMIZED: Uses caching and optimized processing to prevent timeouts
+    
     Request Body:
         {
             "ticker": "AAPL"
@@ -297,19 +330,88 @@ def generate_trading_signals():
                 'error': 'Invalid ticker format. Must be 1-5 alphanumeric characters.'
             }), 400
         
+        # Check cache first (avoids recomputing same ticker within 5 minutes)
+        cached_result = get_cached_result(ticker)
+        if cached_result:
+            logger.info(f"Returning cached result for {ticker}")
+            return jsonify({
+                'success': True,
+                'result': cached_result,
+                'cached': True
+            })
+        
         # Generate signals using full pipeline
+        # This can take 30-60 seconds, but we've optimized it:
+        # - Removed debug/info logging
+        # - Optimized VSN tensor capture (only encoder VSN)
+        # - Parallel API calls already implemented
+        start_time = time.time()
         result = trading_signal_service.generate_signals(
             ticker=ticker,
             sentiment_service=sentiment_service
         )
+        elapsed_time = time.time() - start_time
+        
+        # Cache the result
+        set_cached_result(ticker, result)
+        
+        logger.info(f"Generated signals for {ticker} in {elapsed_time:.2f}s")
         
         return jsonify({
             'success': True,
-            'result': result
+            'result': result,
+            'cached': False,
+            'processing_time': round(elapsed_time, 2)
         })
         
+    except TimeoutError as e:
+        logger.error(f"Timeout generating signals for {ticker}: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Request timed out. Please try again or use a different ticker.'
+        }), 504
     except Exception as e:
         logger.error(f"Error in generate_trading_signals: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@api_bp.route('/signals/cache/clear', methods=['POST'])
+def clear_signal_cache():
+    """Clear the signal cache (admin/debug endpoint)"""
+    try:
+        with _cache_lock:
+            count = len(_signal_cache)
+            _signal_cache.clear()
+        return jsonify({
+            'success': True,
+            'message': f'Cache cleared. Removed {count} entries.'
+        })
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@api_bp.route('/signals/cache/stats', methods=['GET'])
+def get_cache_stats():
+    """Get cache statistics"""
+    try:
+        with _cache_lock:
+            count = len(_signal_cache)
+            tickers = list(_signal_cache.keys())
+        return jsonify({
+            'success': True,
+            'cache_size': count,
+            'cached_tickers': tickers,
+            'ttl_seconds': CACHE_TTL
+        })
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
